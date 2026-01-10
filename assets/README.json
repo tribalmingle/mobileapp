@@ -1,0 +1,8 @@
+{
+  "name": "Simple setup guide for React Native Expo mobile app",
+  "description": "Follow the steps in README.md to get started",
+  "icon": "📱 Use your own icon image (PNG/SVG)",
+  "splash": "📱 Use your own splash screen image (PNG/SVG)",
+  "adaptive-icon": "📱 Use your own adaptive icon (PNG/SVG for Android)",
+  "favicon": "📱 Use your own favicon (PNG for web)"
+}
