@@ -1,0 +1,58 @@
+{
+  "cli": {
+    "version": ">= 6.0.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "development",
+        "EXPO_PUBLIC_API_BASE_URL": "http://localhost:3000/api"
+      }
+    },
+    "staging": {
+      "distribution": "internal",
+      "channel": "staging",
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "staging",
+        "EXPO_PUBLIC_API_BASE_URL": "https://tribalmingle-staging.vercel.app/api"
+      },
+      "ios": {
+        "bundleIdentifier": "com.tribalmingle.app.staging"
+      },
+      "android": {
+        "package": "com.tribalmingle.app.staging"
+      }
+    },
+    "production": {
+      "distribution": "store",
+      "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "production",
+        "EXPO_PUBLIC_API_BASE_URL": "https://tribalmingle.vercel.app/api"
+      },
+      "ios": {
+        "bundleIdentifier": "com.tribalmingle.app",
+        "buildConfiguration": "Release"
+      },
+      "android": {
+        "package": "com.tribalmingle.app",
+        "buildType": "release"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "your-apple-id@example.com",
+        "ascAppId": "1234567890",
+        "appleTeamId": "YOUR_TEAM_ID"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./google-play-service-account.json",
+        "track": "internal"
+      }
+    }
+  }
+}

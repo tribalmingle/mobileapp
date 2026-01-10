@@ -7,6 +7,15 @@ export const reportUser = async (payload: { reportedUserId: string; reason: stri
 
 export const blockUser = async (payload: { blockedUserId: string }) => {
   const { data } = await apiClient.post('/trust/block', payload);
+  
+  // Invalidate all sessions for security after blocking
+  try {
+    await apiClient.post('/auth/logout-all');
+  } catch (err) {
+    console.warn('Failed to invalidate sessions after block', err);
+    // Don't fail the block operation if session invalidation fails
+  }
+  
   return data;
 };
 

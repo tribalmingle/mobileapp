@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Switch, Alert, TextInput } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, Switch, Alert, TextInput, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import UniversalBackground from '@/components/universal/UniversalBackground';
 import GlassCard from '@/components/GlassCard';
@@ -9,6 +9,15 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { colors, spacing, typography, borderRadius } from '@/theme';
 import { trackEvent, captureError } from '@/lib/analytics';
 import { deleteAccount } from '@/api/safety';
+import apiClient from '@/api/client';
+
+type NotificationPrefs = {
+  pushNotifications: boolean;
+  emailUpdates: boolean;
+  newMatches: boolean;
+  messages: boolean;
+  promotions: boolean;
+};
 
 export default function SettingsScreen() {
   const logout = useAuthStore((state) => state.logout);
@@ -23,13 +32,48 @@ export default function SettingsScreen() {
     readReceipts,
     paused,
     loading,
+    error,
     loadSettings,
     updateSettings,
   } = useSettingsStore();
 
+  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPrefs>({
+    pushNotifications: true,
+    emailUpdates: false,
+    newMatches: true,
+    messages: true,
+    promotions: false,
+  });
+  const [loadingNotifs, setLoadingNotifs] = useState(false);
+
   useEffect(() => {
     loadSettings();
-  }, [loadSettings]);
+    loadNotificationPrefs();
+  }, []);
+
+  const loadNotificationPrefs = async () => {
+    setLoadingNotifs(true);
+    try {
+      const { data } = await apiClient.get('/notifications/preferences');
+      if (data?.preferences) {
+        setNotificationPrefs(data.preferences);
+      }
+    } catch (err) {
+      console.warn('Failed to load notification preferences', err);
+    } finally {
+      setLoadingNotifs(false);
+    }
+  };
+
+  const updateNotificationPrefs = async (patch: Partial<NotificationPrefs>) => {
+    const next = { ...notificationPrefs, ...patch };
+    setNotificationPrefs(next);
+    try {
+      await apiClient.put('/notifications/preferences', next);
+    } catch (err) {
+      console.warn('Failed to sync notification preferences', err);
+    }
+  };
 
   const handleSignOut = async () => {
     try {
@@ -70,10 +114,45 @@ export default function SettingsScreen() {
       title="Settings"
       showBottomNav
     >
+      {(loading || loadingNotifs) && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.secondary} />
+        </View>
+      )}
+      
+      {error && (
+        <GlassCard style={styles.errorCard} intensity={28} padding={spacing.md}>
+          <Text style={styles.errorText}>{error}</Text>
+        </GlassCard>
+      )}
+
       <GlassCard style={styles.card} intensity={28} padding={spacing.lg}>
         <Text style={styles.title}>Notifications</Text>
-        <SettingRow label="Push notifications" value={pushNotifications} onChange={(v) => updateSettings({ pushNotifications: v })} />
-        <SettingRow label="Email updates" value={emailUpdates} onChange={(v) => updateSettings({ emailUpdates: v })} />
+        <SettingRow 
+          label="Push notifications" 
+          value={notificationPrefs.pushNotifications} 
+          onChange={(v) => updateNotificationPrefs({ pushNotifications: v })} 
+        />
+        <SettingRow 
+          label="Email updates" 
+          value={notificationPrefs.emailUpdates} 
+          onChange={(v) => updateNotificationPrefs({ emailUpdates: v })} 
+        />
+        <SettingRow 
+          label="New matches" 
+          value={notificationPrefs.newMatches} 
+          onChange={(v) => updateNotificationPrefs({ newMatches: v })} 
+        />
+        <SettingRow 
+          label="Messages" 
+          value={notificationPrefs.messages} 
+          onChange={(v) => updateNotificationPrefs({ messages: v })} 
+        />
+        <SettingRow 
+          label="Promotions" 
+          value={notificationPrefs.promotions} 
+          onChange={(v) => updateNotificationPrefs({ promotions: v })} 
+        />
       </GlassCard>
 
       <GlassCard style={styles.card} intensity={28} padding={spacing.lg}>
@@ -148,6 +227,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xxl,
     gap: spacing.lg,
+  },
+  loadingContainer: {
+    padding: spacing.xl,
+    alignItems: 'center',
+  },
+  errorCard: {
+    marginBottom: spacing.md,
+  },
+  errorText: {
+    ...typography.caption,
+    color: colors.error,
+    textAlign: 'center',
   },
   card: {
     gap: spacing.md,
