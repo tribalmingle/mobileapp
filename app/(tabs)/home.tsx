@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import PurpleCard from '@/components/universal/PurpleCard';
 import GoldButton from '@/components/universal/GoldButton';
 import { useAuthStore } from '@/store/authStore';
 import { colors, spacing, typography, borderRadius, gradients, shadows } from '@/theme';
+import apiClient from '@/api/client';
 
 const statGradients = [
   ['#FF6B9D', '#C44569'],
@@ -30,13 +31,36 @@ const quickActions = [
 
 export default function HomeScreen() {
   const user = useAuthStore((state) => state.user);
+  const [stats, setStats] = useState([
+    { label: 'Matches', value: 0 },
+    { label: 'Views', value: 0 },
+    { label: 'Chats', value: 0 },
+    { label: 'Likes', value: 0 },
+  ]);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
 
-  const stats = [
-    { label: 'Matches', value: user?.profileCompletion ? Math.max(2, Math.round(user.profileCompletion / 10)) : 8 },
-    { label: 'Views', value: user?.age ? user.age + 12 : 42 },
-    { label: 'Chats', value: 7 },
-    { label: 'Likes', value: 18 },
-  ];
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const response = await apiClient.get('/users/stats');
+        if (response.data.success && response.data.stats) {
+          setStats([
+            { label: 'Matches', value: response.data.stats.matches },
+            { label: 'Views', value: response.data.stats.views },
+            { label: 'Chats', value: response.data.stats.chats },
+            { label: 'Likes', value: response.data.stats.likes },
+          ]);
+        }
+      } catch (error) {
+        console.error('Error loading stats:', error);
+        // Keep default values on error
+      } finally {
+        setIsLoadingStats(false);
+      }
+    };
+
+    loadStats();
+  }, []);
 
   return (
     <UniversalBackground

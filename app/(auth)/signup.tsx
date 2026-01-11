@@ -118,7 +118,10 @@ export default function SignupScreen() {
       });
 
       await SecureStore.setItemAsync('user_data', JSON.stringify({ name: `${firstName} ${lastName}`, email }));
-      router.push('/(auth)/otp-verification');
+      router.push({
+        pathname: '/(auth)/otp-verification',
+        params: { email: email.toLowerCase().trim() }
+      });
     } catch (error: any) {
       if (error?.message?.includes('already')) {
         setErrorMessage('This email is already registered. Please login or use a different email.');

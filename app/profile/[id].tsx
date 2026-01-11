@@ -8,12 +8,14 @@ import {
   Image,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import { fetchUserProfile } from '@/api/users';
+import { sendSwipe } from '@/api/discovery';
 import GlassCard from '@/components/GlassCard';
 import GoldButton from '@/components/universal/GoldButton';
 import { colors, spacing, typography, borderRadius, gradients } from '@/theme';
@@ -55,42 +57,25 @@ export default function ProfileDetailScreen() {
   const navigation = useNavigation<any>();
   const params = useLocalSearchParams();
   const rawProfile = parseProfileParam(params.profile);
-  const fallbackProfile: ProfileDetail = {
-    id: params.id?.toString() || 'demo-profile',
-    name: (params as any)?.name?.toString?.() || 'Tribal Member',
-    age: 28,
-    tribe: 'Yoruba',
-    city: 'Lagos',
-    country: 'Nigeria',
-    bio: 'Faith-centered, family-loving, and curious about the world. Looking for someone who values community and kindness.',
-    interests: ['Faith', 'Cooking', 'Travel', 'Afrobeats'],
-    compatibility: 92,
-    verified: true,
-    photos: [
-      (params as any)?.avatar?.toString?.() || 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=1000&q=80',
-      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=1000&q=80',
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=1000&q=80',
-    ],
-    occupation: 'Product Designer',
-    education: 'B.Sc. Computer Science',
-    relationshipGoals: ['Meaningful connection', 'Marriage-focused'],
-  };
 
-  const initialProfile: ProfileDetail = useMemo(() => {
+  const initialProfile: ProfileDetail | null = useMemo(() => {
     if (rawProfile) {
       return {
-        ...fallbackProfile,
         ...rawProfile,
-        photos: rawProfile.photos && rawProfile.photos.length > 0 ? rawProfile.photos : fallbackProfile.photos,
+        id: rawProfile.id || params.id?.toString() || '',
+        name: rawProfile.name || 'Unknown',
+        photos: rawProfile.photos && rawProfile.photos.length > 0 ? rawProfile.photos : [],
       };
     }
-    return fallbackProfile;
-  }, [rawProfile]);
+    return null;
+  }, [rawProfile, params.id]);
 
-  const [profile, setProfile] = useState<ProfileDetail>(initialProfile);
+  const [profile, setProfile] = useState<ProfileDetail | null>(initialProfile);
   const [photoIndex, setPhotoIndex] = useState(0);
   const [liked, setLiked] = useState(false);
   const [superLiked, setSuperLiked] = useState(false);
+  const [isLoading, setIsLoading] = useState(!initialProfile);
+  const [error, setError] = useState<string | null>(null);
   const galleryRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -100,13 +85,25 @@ export default function ProfileDetailScreen() {
   useEffect(() => {
     const load = async () => {
       if (!params.id) return;
-      const loaded = await fetchUserProfile(String(params.id));
-      if (loaded) {
-        setProfile((prev) => ({
-          ...prev,
-          ...loaded,
-          photos: loaded.photos && loaded.photos.length > 0 ? loaded.photos : prev.photos,
-        }));
+      setIsLoading(true);
+      setError(null);
+      try {
+        const loaded = await fetchUserProfile(String(params.id));
+        if (loaded) {
+          setProfile((prev) => ({
+            ...(prev || {}),
+            ...loaded,
+            id: loaded.id || String(params.id),
+            name: loaded.name || 'Unknown',
+            photos: loaded.photos && loaded.photos.length > 0 ? loaded.photos : (prev?.photos || []),
+          }));
+        } else {
+          setError('Profile not found');
+        }
+      } catch (err: any) {
+        setError(err?.message || 'Failed to load profile');
+      } finally {
+        setIsLoading(false);
       }
     };
     load();
@@ -138,6 +135,7 @@ export default function ProfileDetailScreen() {
   };
 
   const goToChat = () => {
+    if (!profile) return;
     const targetId = profile.email || profile.id;
     router.push({
       pathname: '/(tabs)/chat/[id]',
@@ -149,23 +147,75 @@ export default function ProfileDetailScreen() {
     });
   };
 
-  const onLike = () => {
+  const onLike = async () => {
     if (liked || superLiked) {
       Alert.alert('Already sent', 'You have already liked or super liked this member.');
       return;
     }
-    setLiked(true);
-    Alert.alert('Liked', 'We saved your like.');
+    if (!profile?.id) return;
+    
+    try {
+      await sendSwipe(profile.id, 'like');
+      setLiked(true);
+      Alert.alert('Liked', 'We saved your like.');
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'Failed to send like');
+    }
   };
 
-  const onSuperLike = () => {
+  const onSuperLike = async () => {
     if (liked || superLiked) {
       Alert.alert('Already sent', 'You have already liked or super liked this member.');
       return;
     }
-    setSuperLiked(true);
-    Alert.alert('Super like', 'Your super like has been sent.');
+    if (!profile?.id) return;
+    
+    try {
+      await sendSwipe(profile.id, 'superlike');
+      setSuperLiked(true);
+      Alert.alert('Super like', 'Your super like has been sent.');
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'Failed to send super like');
+    }
   };
+
+  if (isLoading) {
+    return (
+      <LinearGradient
+        colors={gradients.hero.colors}
+        start={gradients.hero.start}
+        end={gradients.hero.end}
+        style={styles.screen}
+      >
+        <SafeAreaView style={[styles.safeArea, styles.centered]}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading profile...</Text>
+        </SafeAreaView>
+      </LinearGradient>
+    );
+  }
+
+  if (error || !profile) {
+    return (
+      <LinearGradient
+        colors={gradients.hero.colors}
+        start={gradients.hero.start}
+        end={gradients.hero.end}
+        style={styles.screen}
+      >
+        <SafeAreaView style={[styles.safeArea, styles.centered]}>
+          <Ionicons name="alert-circle" size={48} color={colors.error} />
+          <Text style={styles.errorTitle}>Profile Not Available</Text>
+          <Text style={styles.errorText}>{error || 'This profile could not be loaded.'}</Text>
+          <GoldButton
+            title="Go Back"
+            onPress={() => router.back()}
+            style={styles.errorButton}
+          />
+        </SafeAreaView>
+      </LinearGradient>
+    );
+  }
 
   const compatibility = profile.compatibility ?? 90;
 
@@ -376,6 +426,32 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  loadingText: {
+    marginTop: spacing.md,
+    ...typography.body,
+    color: colors.text.secondary,
+  },
+  errorTitle: {
+    marginTop: spacing.lg,
+    ...typography.h2,
+    color: colors.text.primary,
+    textAlign: 'center',
+  },
+  errorText: {
+    marginTop: spacing.sm,
+    ...typography.body,
+    color: colors.text.secondary,
+    textAlign: 'center',
+  },
+  errorButton: {
+    marginTop: spacing.xl,
+    minWidth: 200,
   },
   headerRow: {
     flexDirection: 'row',

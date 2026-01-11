@@ -1,20 +1,25 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ScrollView, TouchableWithoutFeedback, Keyboard } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ScrollView, TouchableWithoutFeedback, Keyboard, Alert } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography } from '@/theme';
 import PrimaryButton from '@/components/PrimaryButton';
 import { LinearGradient } from 'expo-linear-gradient';
 import GlassCard from '@/components/GlassCard';
+import apiClient from '@/api/client';
 
-const CODE_LENGTH = 4;
+const CODE_LENGTH = 6; // Changed to 6 digits to match backend
 
 export default function OTPVerificationScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const email = params.email as string;
+  
   const [code, setCode] = useState('');
   const [timer, setTimer] = useState(60);
   const [loading, setLoading] = useState(false);
   const [verified, setVerified] = useState(false);
+  const [resending, setResending] = useState(false);
   const hiddenInputRef = useRef<TextInput | null>(null);
 
   useEffect(() => {
@@ -40,32 +45,64 @@ export default function OTPVerificationScreen() {
     setCode(sanitized);
   };
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     if (loading || verified) return;
     const isComplete = code.length === CODE_LENGTH;
     if (!isComplete) return;
-    setLoading(true);
-    setVerified(true);
 
-    setTimeout(() => {
+    setLoading(true);
+
+    try {
+      const response = await apiClient.post('/auth/verify-otp', { 
+        email, 
+        code 
+      });
+
+      if (response.data.success) {
+        setVerified(true);
+        Alert.alert('Success', 'Email verified successfully!', [
+          { 
+            text: 'Continue', 
+            onPress: () => router.push('/(auth)/signup-success') 
+          }
+        ]);
+      }
+    } catch (error: any) {
+      const message = 
+        error?.response?.data?.message || 
+        'Invalid verification code. Please try again.';
+      
+      Alert.alert('Verification Failed', message);
+      setCode(''); // Clear code on error
+      hiddenInputRef.current?.focus();
+    } finally {
       setLoading(false);
-      router.push('/(auth)/signup-success');
-    }, 300);
+    }
   };
 
-  // Auto-accept any 4-digit code in demo mode to avoid waiting for email
-  useEffect(() => {
-    const isComplete = code.length === CODE_LENGTH;
-    if (isComplete && !loading && !verified) {
-      handleVerify();
-    }
-  }, [code, loading, verified]);
+  const handleResend = async () => {
+    if (resending || timer > 0) return;
 
-  const handleResend = () => {
-    setTimer(60);
-    setCode('');
-    setVerified(false);
-    hiddenInputRef.current?.focus();
+    setResending(true);
+    try {
+      // Call backend to resend OTP
+      await apiClient.post('/auth/resend-otp', { email });
+      
+      setTimer(60);
+      setCode('');
+      setVerified(false);
+      hiddenInputRef.current?.focus();
+      
+      Alert.alert('Success', 'Verification code sent to your email');
+    } catch (error: any) {
+      const message = 
+        error?.response?.data?.message || 
+        'Failed to resend code. Please try again.';
+      
+      Alert.alert('Error', message);
+    } finally {
+      setResending(false);
+    }
   };
 
   return (
@@ -119,13 +156,18 @@ export default function OTPVerificationScreen() {
                 onFocus={refocus}
               />
 
-              <PrimaryButton title="Verify (Demo)" onPress={handleVerify} loading={loading} disabled={loading || code.length !== CODE_LENGTH} />
+              <PrimaryButton 
+                title={verified ? "Verified!" : "Verify Email"} 
+                onPress={handleVerify} 
+                loading={loading} 
+                disabled={loading || code.length !== CODE_LENGTH || verified} 
+              />
 
               <View style={styles.resendContainer}>
                 <Text style={styles.resendText}>Didn't receive the code?</Text>
-                <TouchableOpacity onPress={handleResend} disabled={timer > 0}>
-                  <Text style={[styles.resendButton, timer > 0 && styles.resendDisabled]}>
-                    {timer > 0 ? `Resend in ${timer}s` : 'Resend Code'}
+                <TouchableOpacity onPress={handleResend} disabled={timer > 0 || resending}>
+                  <Text style={[styles.resendButton, (timer > 0 || resending) && styles.resendDisabled]}>
+                    {resending ? 'Sending...' : timer > 0 ? `Resend in ${timer}s` : 'Resend Code'}
                   </Text>
                 </TouchableOpacity>
               </View>
