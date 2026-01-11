@@ -7,6 +7,7 @@ import * as SecureStore from 'expo-secure-store';
 import Svg, { Path } from 'react-native-svg';
 import { AfricanTribalPattern, PatternColors } from '@/components/AfricanTribalPattern';
 import { ProfileDraftPayload, ProfileUpdatePayload, saveProfileDraft, updateProfile } from '@/api/profile';
+import { submitOnboardingStep, getOnboardingStatus } from '@/api/onboarding';
 import { useAuthStore } from '@/store/authStore';
 import { colors, spacing, typography, borderRadius, shadows } from '@/theme';
 import { User } from '@/types/user';
@@ -235,16 +236,85 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
     setError(null);
 
     try {
-      const response = await saveProfileDraft(payload);
-      if (response.data?.user) {
-        updateUser(response.data.user);
+      // Use new onboarding/step endpoint
+      const stepData = convertPayloadToStepData(step, payload);
+      const response = await submitOnboardingStep(step, stepData);
+      
+      if (response.profile) {
+        // Update user with latest profile data
+        updateUser(response.profile);
+      }
+      
+      // Also try old endpoint for backward compatibility
+      try {
+        const legacyResponse = await saveProfileDraft(payload);
+        if (legacyResponse.data?.user) {
+          updateUser(legacyResponse.data.user);
+        }
+      } catch (legacyErr) {
+        console.warn('Legacy profile draft save failed:', legacyErr);
       }
     } catch (err: any) {
-      const errorMessage = err?.response?.data?.message || err?.message || 'Failed to save this step.';
+      const errorMessage = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Failed to save this step.';
       setError(errorMessage);
       throw err;
     } finally {
       setIsSavingStep(false);
+    }
+  };
+
+  // Convert wizard payload to step data format expected by backend
+  const convertPayloadToStepData = (step: number, payload: ProfileDraftPayload): any => {
+    switch (step) {
+      case 1: // Photos
+        return { photos: payload.photos };
+      case 2: // Location
+        return {
+          city: payload.location?.city,
+          state: payload.location?.state,
+          country: payload.location?.country,
+          latitude: payload.location?.latitude,
+          longitude: payload.location?.longitude
+        };
+      case 3: // Heritage
+        return {
+          tribe: payload.heritage?.tribe,
+          heritage: payload.heritage?.country
+        };
+      case 4: // Personal Details
+        return {
+          height: payload.personalDetails?.height,
+          gender: payload.personalDetails?.gender,
+          dateOfBirth: payload.personalDetails?.dateOfBirth,
+          education: payload.personalDetails?.education
+        };
+      case 5: // Work
+        return {
+          occupation: payload.work?.occupation,
+          workType: payload.work?.workType
+        };
+      case 6: // Faith
+        return { faith: payload.faith };
+      case 7: // Interests
+        return { interests: payload.interests };
+      case 8: // Bio
+        return { bio: payload.bio };
+      case 9: // Looking For
+        return {
+          lookingFor: payload.lookingFor,
+          ageRangeMin: payload.ageRangeMin,
+          ageRangeMax: payload.ageRangeMax,
+          maxDistance: payload.maxDistance
+        };
+      case 10: // ID Verification
+        return {
+          verificationIdUrl: payload.idVerificationUrl,
+          verificationStatus: 'pending'
+        };
+      case 11: // Selfie
+        return { verificationSelfie: payload.selfiePhoto };
+      default:
+        return payload;
     }
   };
 

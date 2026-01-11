@@ -46,8 +46,6 @@ export default function ThreadScreen() {
     [user]
   );
 
-  const partnerId = useMemo(() => normalizeId(thread?.participants?.[0]?.id || (useDirect && id ? String(id) : undefined)), [id, thread, useDirect]);
-
   const [thread, setThread] = useState<Thread | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [page, setPage] = useState(1);
@@ -65,6 +63,8 @@ export default function ThreadScreen() {
   const addNotification = useNotificationStore((s) => s.addNotification);
 
   const useDirect = Boolean(id && String(id).includes('@'));
+
+  const partnerId = useMemo(() => normalizeId(thread?.participants?.[0]?.id || (useDirect && id ? String(id) : undefined)), [id, thread, useDirect]);
 
   const loadThread = useCallback(async () => {
     if (!id) return;
