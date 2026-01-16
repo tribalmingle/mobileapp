@@ -3,7 +3,7 @@
     "name": "TM App",
     "slug": "tmapp",
     "scheme": "tmapp",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -15,7 +15,8 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.tm.app"
+      "bundleIdentifier": "com.tm.app",
+      "buildNumber": "2"
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +24,8 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.tm.app"
+      "package": "com.tm.app",
+      "versionCode": 2
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -43,7 +45,16 @@
     "extra": {
       "router": {
         "origin": "https://tmapp.local"
+      },
+      "eas": {
+        "projectId": "309dc50f-fb46-49f7-bd62-6a1a86d72910"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/309dc50f-fb46-49f7-bd62-6a1a86d72910"
     }
   }
 }
