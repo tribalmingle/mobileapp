@@ -10,14 +10,17 @@ import {
   Animated,
   PanResponder,
   Image,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import UniversalBackground from '@/components/universal/UniversalBackground';
 import { colors, spacing, typography, borderRadius, shadows } from '@/theme';
 import { fetchRecommendations, Recommendation, sendSwipe } from '@/api/discovery';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 const SWIPE_THRESHOLD = 0.24 * width;
 
 export default function DiscoverScreen() {
@@ -26,11 +29,12 @@ export default function DiscoverScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isActioning, setIsActioning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [recentMatches, setRecentMatches] = useState<Recommendation[]>([]);
   const position = useRef(new Animated.ValueXY()).current;
 
   const topCard = feed[0];
-  const nextCard = feed[1];
-  const thirdCard = feed[2];
+  const leftCard = feed[1];
+  const rightCard = feed[2];
 
   const loadFeed = async () => {
     setIsLoading(true);
@@ -49,6 +53,10 @@ export default function DiscoverScreen() {
     loadFeed();
   }, []);
 
+  useEffect(() => {
+    setRecentMatches(feed.slice(1, 8));
+  }, [feed]);
+
   const openProfile = (person: Recommendation) => {
     router.push({
       pathname: '/profile/[id]',
@@ -57,6 +65,17 @@ export default function DiscoverScreen() {
         profile: JSON.stringify(person),
       },
     });
+  };
+
+  const focusCard = (personId: string) => {
+    setFeed((prev) => {
+      const index = prev.findIndex((item) => item.id === personId);
+      if (index <= 0) return prev;
+      const selected = prev[index];
+      const next = [selected, ...prev.slice(0, index), ...prev.slice(index + 1)];
+      return next;
+    });
+    position.setValue({ x: 0, y: 0 });
   };
 
   const advance = () => {
@@ -76,7 +95,11 @@ export default function DiscoverScreen() {
         try {
           await sendSwipe(person.id, action);
         } catch (err: any) {
-          setError(err?.message || 'Could not submit your action.');
+          const message = err?.response?.data?.message || err?.message || '';
+          const status = err?.response?.status;
+          if (!(status === 400 && /already liked/i.test(message))) {
+            setError(message || 'Could not submit your action.');
+          }
         } finally {
           setIsActioning(false);
         }
@@ -132,63 +155,101 @@ export default function DiscoverScreen() {
     extrapolate: 'clamp',
   });
 
-  const renderStackedCard = (candidate: Recommendation | undefined, depth: number, align: 'left' | 'right') => {
+  // Render side cards (left and right) - 25% smaller than active, centered
+  const renderSideCard = (candidate: Recommendation | undefined, position: 'left' | 'right') => {
     if (!candidate) return null;
-    const scale = depth === 1 ? 0.9 : 0.85;
-    const translateY = depth === 1 ? 10 : 20;
-    const translateX = align === 'left' ? -22 : 22;
-    const opacity = depth === 1 ? 0.9 : 0.65;
+    
+    // Side cards should be 75% of active card (25% smaller)
+    const activeCardWidthPercent = 0.614;
+    const sideCardScale = 0.75; // 25% smaller
+    const sideCardWidthPercent = activeCardWidthPercent * sideCardScale;
+    const sideCardWidth = width * sideCardWidthPercent;
+    
     return (
       <View
         style={[
-          styles.backCardWrapper,
+          styles.sideCardContainer,
           {
-            transform: [{ scale }, { translateY }, { translateX }],
-            opacity,
+            width: sideCardWidth,
+            height: '75%', // 25% smaller in height too
+            left: position === 'left' ? -sideCardWidth * 0.35 : undefined,
+            right: position === 'right' ? -sideCardWidth * 0.35 : undefined,
           },
         ]}
         pointerEvents="none"
       >
         <ImageBackground
           source={{ uri: candidate.photos?.[0] }}
-          style={styles.backCard}
-          imageStyle={styles.backCardImage}
-          blurRadius={14}
+          style={styles.sideCard}
+          imageStyle={styles.sideCardImage}
         >
-          <View style={styles.backOverlay} />
+          {/* Reduced blur for better visibility */}
+          <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+          {/* Lighter overlay */}
+          <View style={styles.sideCardOverlay} />
         </ImageBackground>
       </View>
     );
   };
 
+  // Render the main center card with glassmorphism and premium styling
   const renderMainCard = () => {
     if (!topCard) return null;
+    const messageLabel =
+      topCard.gender === 'male'
+        ? 'Message him'
+        : topCard.gender === 'female'
+          ? 'Message her'
+          : 'Message';
     return (
-      <Animated.View style={[styles.cardContainer, cardStyle]} {...panResponder.panHandlers}>
+      <Animated.View style={[styles.mainCardContainer, cardStyle]} {...panResponder.panHandlers}>
         <ImageBackground
           source={{ uri: topCard.photos?.[0] }}
-          imageStyle={styles.cardImage}
-          style={styles.cardSurface}
+          imageStyle={styles.mainCardImage}
+          style={styles.mainCardSurface}
         >
-          <View style={styles.overlay} />
+          {/* Bottom gradient for text readability */}
+          <LinearGradient
+            colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.85)']}
+            style={styles.gradientOverlay}
+          />
+          
+          {/* Premium matching badge */}
+          <View style={styles.matchBadge}>
+            <Ionicons name="analytics" size={14} color="#FFD700" />
+            <Text style={styles.matchText}>
+              {topCard.matchPercent || topCard.compatibility || 95}% Match
+            </Text>
+          </View>
+          
+          {/* Profile details at bottom */}
           <View style={styles.cardContent}>
-            <View style={styles.cardFooter}>
-              <View style={styles.nameBlock}>
-                <Text style={styles.cardName} numberOfLines={1}>
-                  {topCard.name}
-                  {topCard.age ? `, ${topCard.age}` : ''}
+            <View style={styles.profileInfo}>
+              <Text style={styles.nameAge} numberOfLines={1}>
+                {topCard.name}{topCard.age ? `, ${topCard.age}` : ''}
+              </Text>
+              <View style={styles.tribeRow}>
+                <Text style={styles.tribe} numberOfLines={1}>
+                  {topCard.tribe || 'Swahili'}
                 </Text>
-                <Text style={styles.cardTribe}>{topCard.tribe || 'Tribe'}</Text>
-                <View style={styles.locationRow}>
-                  <Ionicons name="location" size={16} color={colors.white} />
-                  <Text style={styles.cardMeta} numberOfLines={1}>
-                    {topCard.city || 'City'}, {topCard.country || 'Country'}
-                  </Text>
-                </View>
+                <TouchableOpacity
+                  style={styles.messagePill}
+                  onPress={() => router.push('/(tabs)/chat')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.messageText}>{messageLabel}</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.locationRow}>
+                <Ionicons name="location-sharp" size={13} color="rgba(255,255,255,0.85)" />
+                <Text style={styles.location} numberOfLines={1}>
+                  {topCard.city || 'Nairobi'}, {topCard.country || 'Kenya'}
+                </Text>
               </View>
             </View>
           </View>
 
+          {/* Swipe feedback stamps */}
           <Animated.View style={[styles.stamp, styles.likeStamp, { opacity: likeOpacity }]}>
             <Text style={styles.stampText}>LIKE</Text>
           </Animated.View>
@@ -200,28 +261,24 @@ export default function DiscoverScreen() {
     );
   };
 
-  const renderFooterAvatars = () => {
-    const avatars = feed.slice(0, 7);
-    if (avatars.length === 0) return null;
-    return (
-      <View style={styles.avatarRow}>
-        {avatars.map((item) => (
-          <TouchableOpacity key={item.id} onPress={() => openProfile(item)}>
-            <View style={styles.avatarRing}>
-              <Image source={{ uri: item.photos?.[0] }} style={styles.avatar} />
-            </View>
-          </TouchableOpacity>
-        ))}
-      </View>
-    );
-  };
-
   const renderContent = () => {
     if (isLoading) {
       return (
         <View style={styles.loadingState}>
           <ActivityIndicator size="large" color={colors.secondary} />
-          <Text style={styles.loadingText}>Fetching recommendations...</Text>
+          <Text style={styles.loadingText}>Finding your matches...</Text>
+        </View>
+      );
+    }
+
+    if (!topCard && !isLoading) {
+      return (
+        <View style={styles.emptyState}>
+          <Ionicons name="heart-dislike-outline" size={64} color={colors.text.secondary} />
+          <Text style={styles.emptyText}>No more profiles</Text>
+          <TouchableOpacity onPress={loadFeed} style={styles.reloadButton}>
+            <Text style={styles.reloadText}>Reload</Text>
+          </TouchableOpacity>
         </View>
       );
     }
@@ -237,32 +294,67 @@ export default function DiscoverScreen() {
           </View>
         )}
 
-        <View style={styles.deck}>
-          {renderStackedCard(thirdCard, 2, 'right')}
-          {renderStackedCard(nextCard, 1, 'left')}
-          {renderMainCard()}
+        <View style={styles.carouselContainer}>
+          <View style={styles.deck}>
+            {renderSideCard(leftCard, 'left')}
+            {renderSideCard(rightCard, 'right')}
+            {renderMainCard()}
+          </View>
+
+          <View style={styles.actionsRow}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.rejectButton]}
+              onPress={() => animateSwipe(-width * 1.2, 'pass')}
+              disabled={isActioning || !topCard}
+              activeOpacity={0.7}
+            >
+              <LinearGradient
+                colors={['#4A90E2', '#5C6BC0']}
+                style={styles.rejectGradient}
+              >
+                <Ionicons name="close" size={32} color="#FFFFFF" />
+              </LinearGradient>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.actionButton, styles.likeButton]}
+              onPress={() => animateSwipe(width * 1.2, 'like')}
+              disabled={isActioning || !topCard}
+              activeOpacity={0.7}
+            >
+              <LinearGradient
+                colors={['#FF6B95', '#FF8E6E']}
+                style={styles.likeGradient}
+              >
+                <Ionicons name="heart" size={30} color="#FFFFFF" />
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={[styles.circleButton, styles.nopeButton]}
-            onPress={() => animateSwipe(-width * 1.1, 'pass')}
-            disabled={isActioning || !topCard}
-          >
-            <Ionicons name="close" size={32} color="#F04D4D" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.circleButton, styles.likeButton]}
-            onPress={() => animateSwipe(width * 1.1, 'like')}
-            disabled={isActioning || !topCard}
-          >
-            <Ionicons name="heart" size={32} color={colors.white} />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.recentRow}>
+        {/* Recent matchings section */}
+        <View style={styles.recentSection}>
           <Text style={styles.recentTitle}>Recent matchings</Text>
-          {renderFooterAvatars()}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.recentScrollContent}
+          >
+            {recentMatches.map((match, index) => (
+              <TouchableOpacity
+                key={match.id || index}
+                style={styles.recentAvatar}
+                onPress={() => focusCard(match.id)}
+              >
+                <Image
+                  source={{ uri: match.photos?.[0] }}
+                  style={styles.recentImage}
+                  resizeMode="cover"
+                />
+                <View style={styles.recentBorder} />
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
       </>
     );
@@ -270,7 +362,7 @@ export default function DiscoverScreen() {
 
   return (
     <UniversalBackground
-      scrollable
+      scrollable={false}
       contentContainerStyle={styles.content}
       onProfilePress={() => router.push('/(tabs)/profile')}
       onEditProfilePress={() => router.push('/(tabs)/profile')}
@@ -286,220 +378,345 @@ export default function DiscoverScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    paddingBottom: spacing.xl,
-    paddingHorizontal: spacing.lg,
-    gap: spacing.lg,
+    flex: 1,
+    justifyContent: 'flex-start',
+    paddingHorizontal: 0,
+    paddingBottom: 0,
   },
   headerRow: {
-    gap: 6,
     alignItems: 'center',
-    marginTop: spacing.sm,
+    marginTop: spacing.xs-5,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.lg,
   },
   title: {
     ...typography.h1,
     color: colors.white,
-    letterSpacing: 1,
+    fontSize: 24,
+    fontWeight: '700',
+    letterSpacing: 1.5,
   },
+  
+  // Carousel container - holds cards and actions
+  carouselContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+  },
+  
+  // Card deck container - portrait ID card proportions
   deck: {
-    height: 500,
+    width: '100%',
+    height: height * 0.42,
+    maxHeight: 380,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: spacing.lg,
   },
-  cardContainer: {
-    width: '90%',
-    height: 420,
-    borderRadius: borderRadius.xl,
-    overflow: 'hidden',
+  
+  // Side cards (left and right) - 25% smaller, centered with glass border
+  sideCardContainer: {
     position: 'absolute',
-    borderWidth: 3,
-    borderColor: '#B6B6B6',
-    ...shadows.lg,
-  },
-  cardSurface: {
-    flex: 1,
-    borderRadius: borderRadius.xl,
+    borderRadius: 20,
     overflow: 'hidden',
+    zIndex: 1,
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
-  cardImage: {
-    borderRadius: borderRadius.xl,
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.12)',
-  },
-  cardContent: {
+  sideCard: {
     flex: 1,
-    justifyContent: 'flex-end',
-    padding: spacing.lg,
-    paddingBottom: spacing.xl,
   },
+  sideCardImage: {
+    borderRadius: 20,
+  },
+  sideCardOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  
+  // Main center card - 30% smaller total (85% * 0.85 * 0.85 = 61.4%)
+  mainCardContainer: {
+    width: '61.4%', // 72.25% * 0.85 = 15% smaller again
+    height: '100%',
+    borderRadius: 24,
+    overflow: 'hidden',
+    zIndex: 10,
+    borderWidth: 4,
+    borderColor: 'rgba(255,255,255,0.35)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    ...shadows.lg,
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 15,
+  },
+  mainCardSurface: {
+    flex: 1,
+  },
+  mainCardImage: {
+    borderRadius: 24,
+  },
+  gradientOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 200,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
+  
+  // Match percentage badge
   matchBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    backgroundColor: 'rgba(20,20,20,0.8)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 18,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255,215,0,0.35)',
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
   },
   matchText: {
-    ...typography.small,
-    color: colors.white,
+    ...typography.body,
+    color: '#FFD700',
     fontWeight: '700',
+    fontSize: 13,
+    letterSpacing: 0.2,
   },
-  cardFooter: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    justifyContent: 'flex-end',
-    gap: spacing.xs,
+  
+  // Profile info at bottom of card
+  cardContent: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: spacing.lg,
+    paddingBottom: spacing.lg,
   },
-  nameBlock: {
-    flex: 1,
-    gap: spacing.xs,
+  profileInfo: {
+    gap: 3,
   },
-  cardName: {
+  nameAge: {
     ...typography.h1,
     color: colors.white,
+    fontSize: 28,
     fontWeight: '800',
+    letterSpacing: 0.3,
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
   },
-  cardMeta: {
+  tribe: {
     ...typography.body,
+    color: '#FF8C5A',
+    fontSize: 17,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+    textShadowColor: 'rgba(0,0,0,0.4)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  tribeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  messagePill: {
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.55)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  messageText: {
+    ...typography.small,
     color: colors.white,
-    opacity: 0.9,
-  },
-  cardTribe: {
-    ...typography.body,
-    color: '#F18A34',
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '600',
   },
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: 4,
     marginTop: 2,
   },
-  viewProfile: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.white,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
+  location: {
+    ...typography.body,
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 14,
+    fontWeight: '500',
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
-  viewProfileText: {
-    ...typography.small,
-    color: colors.primaryDark,
-    fontWeight: '700',
+  
+  // Swipe feedback stamps
+  stamp: {
+    position: 'absolute',
+    top: 50,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 4,
+    transform: [{ rotate: '-15deg' }],
   },
+  likeStamp: {
+    right: 40,
+    borderColor: '#34C759',
+    backgroundColor: 'rgba(52,199,89,0.15)',
+  },
+  nopeStamp: {
+    left: 40,
+    borderColor: '#FF3B30',
+    backgroundColor: 'rgba(255,59,48,0.15)',
+  },
+  stampText: {
+    ...typography.h2,
+    fontWeight: '900',
+    color: colors.white,
+    fontSize: 32,
+    letterSpacing: 2,
+  },
+  
+  // Action buttons - circular with gradients
   actionsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: spacing.xl,
-    marginTop: spacing.md,
+    gap: 55,
+    paddingTop: -spacing.lg,
   },
-  circleButton: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+  actionButton: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    overflow: 'hidden',
+    ...shadows.md,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  rejectButton: {
+    borderWidth: 3,
+    borderColor: '#E53935',
+  },
+  rejectGradient: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.md,
   },
   likeButton: {
-    backgroundColor: '#34C759',
-    borderWidth: 6,
-    borderColor: '#2AA64A',
+    borderWidth: 3,
+    borderColor: '#43A047',
   },
-  nopeButton: {
-    backgroundColor: '#4A62F3',
-    borderWidth: 6,
-    borderColor: '#C82926',
-  },
-  backCardWrapper: {
-    width: '78%',
-    height: 390,
-    borderRadius: borderRadius.xl,
-    overflow: 'hidden',
-    position: 'absolute',
-  },
-  backCard: {
+  likeGradient: {
     flex: 1,
-    borderRadius: borderRadius.xl,
-  },
-  backCardImage: {
-    borderRadius: borderRadius.xl,
-  },
-  backOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-  },
-  stamp: {
-    position: 'absolute',
-    top: spacing.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-    borderWidth: 2,
-  },
-  likeStamp: {
-    right: spacing.lg,
-    borderColor: '#21C16B',
-  },
-  nopeStamp: {
-    left: spacing.lg,
-    borderColor: '#D32F2F',
-  },
-  stampText: {
-    ...typography.body,
-    fontWeight: '800',
-    color: colors.white,
-    letterSpacing: 1,
-  },
-  avatarRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.sm,
-    flexWrap: 'nowrap',
-  },
-  avatarRing: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    padding: 2,
-    backgroundColor: '#F18A34',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
-    borderColor: '#1C1633',
-    backgroundColor: colors.surface,
-  },
-  recentRow: {
-    gap: spacing.xs,
+  
+  // Recent matchings section
+  recentSection: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xs,
+    marginTop: spacing.xl,
   },
   recentTitle: {
-    ...typography.h4,
+    ...typography.h3,
     color: colors.white,
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: spacing.sm,
+  },
+  recentScrollContent: {
+    gap: 12,
+    paddingRight: spacing.lg,
+  },
+  recentAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 36,
+    position: 'relative',
+  },
+  recentImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 36,
+  },
+  recentBorder: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 36,
+    borderWidth: 2.5,
+    borderColor: '#F18A34',
+  },
+  
+  // Loading and error states
+  loadingState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+  },
+  loadingText: {
+    ...typography.body,
+    color: colors.text.secondary,
+    fontSize: 16,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+  },
+  emptyText: {
+    ...typography.h3,
+    color: colors.text.secondary,
+  },
+  reloadButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.full,
+    marginTop: spacing.sm,
+  },
+  reloadText: {
+    ...typography.body,
+    color: colors.white,
+    fontWeight: '700',
   },
   errorCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(255,59,48,0.15)',
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: colors.error,
+    borderColor: 'rgba(255,59,48,0.5)',
+    marginBottom: spacing.md,
+    marginHorizontal: spacing.lg,
   },
   errorText: {
     ...typography.body,
-    color: colors.error,
+    color: '#FF3B30',
+    fontWeight: '600',
   },
   retryButton: {
     marginTop: spacing.sm,
@@ -513,15 +730,5 @@ const styles = StyleSheet.create({
     ...typography.small,
     color: colors.white,
     fontWeight: '700',
-  },
-  loadingState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.xl,
-  },
-  loadingText: {
-    ...typography.body,
-    color: colors.text.secondary,
   },
 });

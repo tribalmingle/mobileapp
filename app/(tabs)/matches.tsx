@@ -121,6 +121,9 @@ export default function MatchesScreen() {
     });
   };
 
+  const getMessageLabel = (item: MatchUser) =>
+    item.gender === 'male' ? 'Message him' : item.gender === 'female' ? 'Message her' : 'Message';
+
   const handleAccept = async (userId: string) => {
     setActioningId(userId);
     setError(null);
@@ -214,6 +217,34 @@ export default function MatchesScreen() {
     </GlassCard>
   );
 
+  const renderSent = ({ item }: { item: MatchUser }) => (
+    <GlassCard style={styles.card} intensity={30} padding={spacing.md}>
+      <View style={styles.row}>
+        <Image source={{ uri: item.photo }} style={styles.avatar} />
+        <View style={styles.meta}>
+          <View style={styles.rowBetween}>
+            <Text style={styles.name}>{item.name}{item.age ? `, ${item.age}` : ''}</Text>
+            <View style={styles.statusPill}>
+              <Ionicons name="heart" size={14} color={colors.primaryDark} />
+              <Text style={styles.statusText}>You liked</Text>
+            </View>
+          </View>
+          <Text style={styles.subline}>{item.city || 'City'} • {item.tribe || 'Tribe'}</Text>
+          <Text style={styles.vibe}>{item.bio || 'You liked this profile'}</Text>
+        </View>
+      </View>
+      <View style={styles.actions}>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.primary, styles.fullWidthButton]}
+          onPress={() => router.push('/(tabs)/chat')}
+        >
+          <Ionicons name="chatbubbles" size={18} color={colors.primaryDark} />
+          <Text style={[styles.actionText, styles.primaryText]}>{getMessageLabel(item)}</Text>
+        </TouchableOpacity>
+      </View>
+    </GlassCard>
+  );
+
   const listForTab = useMemo(() => {
     switch (tab) {
       case 'incoming':
@@ -230,6 +261,7 @@ export default function MatchesScreen() {
 
   const renderForTab = (item: MatchUser) => {
     if (tab === 'incoming') return renderIncoming({ item });
+    if (tab === 'sent') return renderSent({ item });
     if (tab === 'matches') return <MatchCard item={item} onOpen={() => openProfile(item)} />;
     return renderGeneric({ item });
   };
@@ -430,5 +462,8 @@ const styles = StyleSheet.create({
   },
   primaryText: {
     color: colors.primaryDark,
+  },
+  fullWidthButton: {
+    flex: 1,
   },
 });

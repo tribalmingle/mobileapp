@@ -4,6 +4,7 @@ export interface MatchUser {
   id: string;
   name: string;
   age?: number;
+  gender?: 'male' | 'female' | 'non-binary' | 'other';
   tribe?: string;
   city?: string;
   country?: string;
@@ -79,6 +80,7 @@ export const fetchMatches = async (): Promise<MatchUser[]> => {
         id: m.id || m._id || m.userId || m.email,
         name: m.name,
         age: m.age,
+        gender: m.gender,
         tribe: m.tribe,
         city: m.city,
         country: m.country,
@@ -102,9 +104,10 @@ export const fetchIncomingLikes = async (): Promise<MatchUser[]> => {
     const { data } = await apiClient.get<{ success: boolean; likes?: any[] }>('/likes/liked-me');
     if (Array.isArray(data?.likes)) {
       return data.likes.map((l) => ({
-        id: l._id || l.userId,
+        id: l.userId || l._id || l.email,
         name: l.name,
         age: l.age,
+        gender: l.gender,
         tribe: l.tribe,
         city: l.city,
         country: l.country,
@@ -128,9 +131,10 @@ export const fetchSentLikes = async (): Promise<MatchUser[]> => {
     const { data } = await apiClient.get<{ success: boolean; likes?: any[] }>('/likes/i-liked');
     if (Array.isArray(data?.likes)) {
       return data.likes.map((l) => ({
-        id: l._id || l.userId,
+        id: l.userId || l._id || l.email,
         name: l.name,
         age: l.age,
+        gender: l.gender,
         tribe: l.tribe,
         city: l.city,
         country: l.country,
@@ -154,9 +158,10 @@ export const fetchViews = async (): Promise<MatchUser[]> => {
     const { data } = await apiClient.get<{ success: boolean; views?: any[] }>('/profile/views');
     if (Array.isArray(data?.views)) {
       return data.views.map((v) => ({
-        id: v._id || v.userId,
+        id: v.userId || v._id || v.email,
         name: v.name,
         age: v.age,
+        gender: v.gender,
         tribe: v.tribe,
         city: v.city,
         country: v.country,

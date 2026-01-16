@@ -5,6 +5,7 @@ export interface Recommendation {
   email?: string;
   name: string;
   age?: number;
+  gender?: 'male' | 'female' | 'non-binary' | 'other';
   tribe?: string;
   city?: string;
   country?: string;
@@ -12,6 +13,7 @@ export interface Recommendation {
   prompt?: string;
   interests?: string[];
   compatibility?: number;
+  matchPercent?: number;
   verified?: boolean;
   photos: string[];
 }
@@ -40,6 +42,7 @@ const mapUserToRecommendation = (u: any): Recommendation => ({
   email: u.email,
   name: u.name,
   age: u.age,
+  gender: u.gender,
   tribe: u.tribe,
   city: u.city,
   country: u.country,
@@ -155,6 +158,11 @@ export const sendSwipe = async (
     const { data } = await apiClient.post(endpointMap[action], { userId });
     return data || {};
   } catch (error) {
+    const message = (error as any)?.response?.data?.message || '';
+    const status = (error as any)?.response?.status;
+    if (status === 400 && /already liked/i.test(message)) {
+      return { matchCreated: false };
+    }
     console.warn('sendSwipe failed', { action, error });
     throw error;
   }

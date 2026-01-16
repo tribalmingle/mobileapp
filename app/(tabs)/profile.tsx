@@ -30,6 +30,26 @@ export default function ProfileScreen() {
     (user as any)?.image ||
     (user as any)?.photoUrl;
 
+  const photoList =
+    user?.photos && user.photos.length
+      ? user.photos
+      : user?.profilePhotos && user.profilePhotos.length
+        ? user.profilePhotos
+        : (user as any)?.profilePhoto
+          ? [(user as any).profilePhoto]
+          : [];
+
+  const onboardingLocation = (user as any)?.onboarding?.step4;
+  const residenceCity = onboardingLocation?.city || user?.city;
+  const residenceCountry = onboardingLocation?.country || user?.country;
+  const residenceLabel = [residenceCity, residenceCountry].filter(Boolean).join(', ') || 'Add residence';
+  const originLabel =
+    (user as any)?.countryOfOrigin ||
+    (user as any)?.heritage ||
+    (user as any)?.heritageCountry ||
+    (user as any)?.onboarding?.step2?.heritage ||
+    'Add origin';
+
   return (
     <UniversalBackground scrollable contentContainerStyle={styles.scrollContent} title="Profile">
       <View style={styles.headerCard}>
@@ -41,7 +61,8 @@ export default function ProfileScreen() {
             />
             <View style={styles.meta}>
               <Text style={styles.name}>{user?.name || 'Tribal Member'}</Text>
-              <Text style={styles.subline}>{user?.city || 'Lagos'}, {user?.country || 'NG'}</Text>
+              <Text style={styles.subline}>Residence: {residenceLabel}</Text>
+              <Text style={styles.subline}>Origin: {originLabel}</Text>
               <View style={styles.row}>
                 <Ionicons name="location" size={14} color={colors.secondary} />
                 <Text style={styles.caption}>{user?.tribe ? `${user.tribe} tribe` : 'Tribe unlisted'}</Text>
@@ -62,6 +83,17 @@ export default function ProfileScreen() {
           ))}
         </View>
       </View>
+
+      {photoList.length > 0 && (
+        <GlassCard style={styles.photoCard} intensity={24} padding={spacing.lg}>
+          <Text style={styles.sectionTitle}>Photos</Text>
+          <View style={styles.photoGrid}>
+            {photoList.map((uri, index) => (
+              <Image key={`${uri}-${index}`} source={{ uri }} style={styles.photoThumb} />
+            ))}
+          </View>
+        </GlassCard>
+      )}
 
       <GlassCard style={styles.infoCard} intensity={28} padding={spacing.lg}>
         <Text style={styles.sectionTitle}>About</Text>
@@ -193,6 +225,20 @@ const styles = StyleSheet.create({
   },
   infoCard: {
     gap: spacing.md,
+  },
+  photoCard: {
+    gap: spacing.md,
+  },
+  photoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  photoThumb: {
+    width: 96,
+    height: 96,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.surface,
   },
   sectionTitle: {
     ...typography.h3,
