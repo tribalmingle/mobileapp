@@ -3,12 +3,25 @@
     "version": ">= 6.0.0"
   },
   "build": {
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview",
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "preview",
+        "EXPO_PUBLIC_API_BASE_URL": "https://tribalmingle.com/api",
+        "EXPO_PUBLIC_UPLOAD_BASE_URL": "https://tm.d2d.ng"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
     "development": {
       "developmentClient": true,
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_APP_ENV": "development",
-        "EXPO_PUBLIC_API_BASE_URL": "http://localhost:3000/api"
+        "EXPO_PUBLIC_API_BASE_URL": "http://localhost:3000/api",
+        "EXPO_PUBLIC_UPLOAD_BASE_URL": "https://tm.d2d.ng"
       }
     },
     "staging": {
@@ -16,13 +29,8 @@
       "channel": "staging",
       "env": {
         "EXPO_PUBLIC_APP_ENV": "staging",
-        "EXPO_PUBLIC_API_BASE_URL": "https://tribalmingle-staging.vercel.app/api"
-      },
-      "ios": {
-        "bundleIdentifier": "com.tribalmingle.app.staging"
-      },
-      "android": {
-        "package": "com.tribalmingle.app.staging"
+        "EXPO_PUBLIC_API_BASE_URL": "https://tribalmingle-staging.vercel.app/api",
+        "EXPO_PUBLIC_UPLOAD_BASE_URL": "https://tm.d2d.ng"
       }
     },
     "production": {
@@ -30,14 +38,13 @@
       "channel": "production",
       "env": {
         "EXPO_PUBLIC_APP_ENV": "production",
-        "EXPO_PUBLIC_API_BASE_URL": "https://tribalmingle.vercel.app/api"
+        "EXPO_PUBLIC_API_BASE_URL": "https://tribalmingle.vercel.app/api",
+        "EXPO_PUBLIC_UPLOAD_BASE_URL": "https://tm.d2d.ng"
       },
       "ios": {
-        "bundleIdentifier": "com.tribalmingle.app",
         "buildConfiguration": "Release"
       },
       "android": {
-        "package": "com.tribalmingle.app",
         "buildType": "app-bundle"
       }
     }

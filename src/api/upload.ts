@@ -2,6 +2,7 @@ import * as SecureStore from '@/utils/secureStore';
 // Use legacy API to keep getInfoAsync available without deprecation warnings on SDK 54
 import * as FileSystem from 'expo-file-system/legacy';
 import { API_BASE_URL, isDemoMode } from './client';
+import { env } from '@/config/env';
 
 // Cloud function rejects oversized payloads; keep uploads under this tighter limit to avoid 413/"FUNCTION_PAYLOAD_TOO_LARGE".
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -37,36 +38,45 @@ export const uploadImageAsync = async (uri: string, folder: 'profile' | 'selfie'
   const filename = uri.split('/').pop() || 'upload.jpg';
   const mimeType = getMimeType(filename);
 
-  const formData = new FormData();
-  formData.append('file', {
-    uri,
-    name: filename,
-    type: mimeType,
-  } as any);
-  formData.append('folder', folder === 'id' ? 'id-verification' : folder);
+  const safeFolder = folder === 'id' ? 'id-verification' : folder;
 
-  const response = await fetch(`${API_BASE_URL}/upload`, {
-    method: 'POST',
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    body: formData,
+  const uploadUrl = `${API_BASE_URL}/upload`;
+  const uploadResult = await FileSystem.uploadAsync(uploadUrl, uri, {
+    fieldName: 'file',
+    httpMethod: 'POST',
+    uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+    headers: token
+      ? { 'X-Auth-Token': `Bearer ${token}`, Authorization: `Bearer ${token}` }
+      : undefined,
+    parameters: {
+      folder: safeFolder,
+    },
+    mimeType,
   });
 
-  const responseText = await response.text();
   let data: any = {};
-
-  if (responseText) {
+  if (uploadResult.body) {
     try {
-      data = JSON.parse(responseText);
+      data = JSON.parse(uploadResult.body);
     } catch (err) {
-      const snippet = responseText.slice(0, 200);
+      const snippet = uploadResult.body.slice(0, 200);
+      console.warn('[upload] Non-JSON response', { uploadUrl, status: uploadResult.status, snippet });
       throw new Error(`Upload failed: ${snippet || 'Invalid response from server'}`);
     }
   }
 
-  if (!response.ok || !data?.imageUrl) {
-    const message = data?.message || `Upload failed (${response.status}).`;
+  const resolvedUrl = data?.imageUrl || data?.fileUrl || (data?.path ? `${env.uploadBaseUrl}/media/${data.path}` : null);
+
+  if (uploadResult.status !== 200 || !resolvedUrl) {
+    const message = data?.message || data?.error || `Upload failed (${uploadResult.status}).`;
+    console.warn('[upload] Upload failed', {
+      uploadUrl,
+      status: uploadResult.status,
+      body: uploadResult.body?.slice(0, 200),
+      message,
+    });
     throw new Error(message);
   }
 
-  return data.imageUrl as string;
+  return resolvedUrl as string;
 };
