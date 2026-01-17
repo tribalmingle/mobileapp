@@ -19,6 +19,9 @@ export interface ProfileUpdatePayload {
   interests: string[];
   bio: string;
   lookingFor: string;
+  ageRangeMin?: number;
+  ageRangeMax?: number;
+  maxDistance?: number;
   profileCompleted?: boolean;
 }
 
@@ -41,7 +44,7 @@ const toBackendPayload = (payload: ProfileDraftPayload | ProfileUpdatePayload) =
   if ('bio' in payload && payload.bio !== undefined) body.bio = payload.bio;
   if (payload.location?.country) body.country = payload.location.country;
   if (payload.location?.city) body.city = payload.location.city;
-  if (payload.heritage?.country) body.country = payload.heritage.country;
+  if (payload.heritage?.country) body.heritage = payload.heritage.country;
   if (payload.heritage?.tribe) body.tribe = payload.heritage.tribe;
 
   const heightVal = tryNumber(payload.personalDetails?.height as string | undefined);
@@ -60,6 +63,21 @@ const toBackendPayload = (payload: ProfileDraftPayload | ProfileUpdatePayload) =
     if (Array.isArray(payload.photos) && payload.photos.length > 0) {
       body.profilePhoto = payload.photos[0];
     }
+  }
+
+  if (payload.selfiePhoto) {
+    body.selfiePhoto = payload.selfiePhoto;
+    body.verificationSelfie = payload.selfiePhoto;
+  }
+
+  if (payload.idVerificationUrl) {
+    body.idVerificationUrl = payload.idVerificationUrl;
+    body.verificationIdUrl = payload.idVerificationUrl;
+  }
+
+  if (payload.idVerificationType) {
+    body.idVerificationType = payload.idVerificationType;
+    body.verificationIdType = payload.idVerificationType;
   }
 
   if ('profileCompleted' in payload && payload.profileCompleted !== undefined) {

@@ -53,6 +53,19 @@ const PhotoUploadStep: React.FC<Props> = ({ photos, onUpdate, onNext, onBack, cu
     setInFlightIndex(0);
   };
 
+  const movePhoto = (fromIndex: number, toIndex: number) => {
+    if (toIndex < 0 || toIndex >= photos.length) return;
+    const next = [...photos];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    onUpdate(next);
+  };
+
+  const setPrimary = (index: number) => {
+    if (index === 0) return;
+    movePhoto(index, 0);
+  };
+
   const pickImage = async () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -78,6 +91,10 @@ const PhotoUploadStep: React.FC<Props> = ({ photos, onUpdate, onNext, onBack, cu
   };
 
   const handlePhotoSlotPress = (index: number) => {
+    if (photos[index]) {
+      setPrimary(index);
+      return;
+    }
     if (photos.length < 10 && !photos[index]) {
       pickImage();
     }
@@ -110,7 +127,35 @@ const PhotoUploadStep: React.FC<Props> = ({ photos, onUpdate, onNext, onBack, cu
           {[...Array(10)].map((_, index) => (
             <TouchableOpacity key={index} style={styles.photoSlot} onPress={() => handlePhotoSlotPress(index)} activeOpacity={0.7}>
               {photos[index] ? (
-                <Image source={{ uri: photos[index] }} style={styles.photoPreview} />
+                <View style={styles.photoWrapper}>
+                  <Image source={{ uri: photos[index] }} style={styles.photoPreview} />
+                  {index === 0 ? <View style={styles.primaryBadge}><Text style={styles.primaryText}>PRIMARY</Text></View> : null}
+                  <View style={styles.photoActions}>
+                    <TouchableOpacity
+                      style={[styles.actionButton, index === 0 && styles.actionDisabled]}
+                      onPress={() => setPrimary(index)}
+                      disabled={index === 0}
+                    >
+                      <Text style={styles.actionText}>Set primary</Text>
+                    </TouchableOpacity>
+                    <View style={styles.actionRow}>
+                      <TouchableOpacity
+                        style={[styles.moveButton, index === 0 && styles.actionDisabled]}
+                        onPress={() => movePhoto(index, index - 1)}
+                        disabled={index === 0}
+                      >
+                        <Text style={styles.moveText}>←</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.moveButton, index === photos.length - 1 && styles.actionDisabled]}
+                        onPress={() => movePhoto(index, index + 1)}
+                        disabled={index === photos.length - 1}
+                      >
+                        <Text style={styles.moveText}>→</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
               ) : index === 0 ? (
                 <View style={styles.addPhotoButton}>
                   <Text style={styles.plusIcon}>+</Text>
@@ -196,7 +241,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 12,
   },
-  photoPreview: { flex: 1, width: '100%', height: '100%', borderRadius: 12 },
+  photoWrapper: { flex: 1 },
+  photoPreview: { flex: 1, width: '100%', height: '100%' },
+  primaryBadge: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  primaryText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' },
+  photoActions: {
+    position: 'absolute',
+    bottom: 6,
+    left: 6,
+    right: 6,
+    gap: 6,
+  },
+  actionButton: {
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  actionRow: { flexDirection: 'row', gap: 6, justifyContent: 'space-between' },
+  moveButton: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  actionText: { color: '#FFFFFF', fontSize: 10, fontWeight: '600' },
+  moveText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  actionDisabled: { opacity: 0.35 },
   plusIcon: { fontSize: 32, color: '#FF6B9D', marginBottom: 4 },
   plusIconSmall: { fontSize: 24, color: 'rgba(255, 255, 255, 0.6)' },
   addPhotoText: { fontSize: 12, color: '#FF6B9D', fontWeight: '600' },

@@ -15,13 +15,19 @@ const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
   async (config) => {
+    console.log('[API] Request:', config.method?.toUpperCase(), config.url);
     try {
       const token = await SecureStore.getItemAsync('auth_token');
       if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+        const bearer = `Bearer ${token}`;
+        config.headers['X-Auth-Token'] = bearer;
+        config.headers['Authorization'] = bearer;
+        console.log('[API] Token attached');
+      } else {
+        console.log('[API] No token found');
       }
     } catch (error) {
-      console.error('Error retrieving token:', error);
+      console.error('[API] Error retrieving token:', error);
     }
     return config;
   },
@@ -29,8 +35,17 @@ apiClient.interceptors.request.use(
 );
 
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log('[API] Response:', response.status, response.config.url);
+    return response;
+  },
   async (error) => {
+    console.error('[API] Request failed:', {
+      url: error.config?.url,
+      status: error.response?.status,
+      message: error.message,
+      data: error.response?.data
+    });
     // Do not auto-clear tokens on 401; we keep sessions until explicit logout
     return Promise.reject(error);
   }

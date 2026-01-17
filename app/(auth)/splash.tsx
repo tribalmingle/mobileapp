@@ -9,6 +9,8 @@ import { colors, typography, spacing } from '@/theme';
 export default function SplashScreen() {
   const router = useRouter();
   const loadUser = useAuthStore((state) => state.loadUser);
+  const loading = useAuthStore((state) => state.loading);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
 
@@ -19,6 +21,7 @@ export default function SplashScreen() {
     ]).start();
 
     let cancelled = false;
+    const MAX_SPLASH_MS = 3000;
 
     const bootstrap = async () => {
       const token = await SecureStore.getItemAsync('auth_token');
@@ -26,12 +29,18 @@ export default function SplashScreen() {
 
       if (token) {
         try {
-          await loadUser();
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Splash timeout')), MAX_SPLASH_MS)
+          );
+          await Promise.race([loadUser(), timeoutPromise]);
+          if (!cancelled) {
+            router.replace('/(tabs)/home');
+          }
         } catch (err) {
-          // If refresh fails, still try to proceed; tabs will handle errors gracefully
-        }
-        if (!cancelled) {
-          router.replace('/(tabs)/home');
+          // If refresh fails, go to welcome screen
+          if (!cancelled) {
+            router.replace('/(auth)/welcome');
+          }
         }
         return;
       }

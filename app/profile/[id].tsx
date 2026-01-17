@@ -56,7 +56,7 @@ export default function ProfileDetailScreen() {
   const router = useRouter();
   const navigation = useNavigation<any>();
   const params = useLocalSearchParams();
-  const rawProfile = parseProfileParam(params.profile);
+  const rawProfile = useMemo(() => parseProfileParam(params.profile), [params.profile]);
 
   const initialProfile: ProfileDetail | null = useMemo(() => {
     if (rawProfile) {
@@ -79,7 +79,11 @@ export default function ProfileDetailScreen() {
   const galleryRef = useRef<ScrollView>(null);
 
   useEffect(() => {
-    setProfile(initialProfile);
+    if (!initialProfile) return;
+    setProfile((prev) => {
+      if (prev?.id === initialProfile.id) return prev;
+      return initialProfile;
+    });
   }, [initialProfile]);
 
   useEffect(() => {

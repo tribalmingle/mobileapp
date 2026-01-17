@@ -40,43 +40,67 @@ export const uploadImageAsync = async (uri: string, folder: 'profile' | 'selfie'
 
   const safeFolder = folder === 'id' ? 'id-verification' : folder;
 
-  const uploadUrl = `${API_BASE_URL}/upload`;
-  const uploadResult = await FileSystem.uploadAsync(uploadUrl, uri, {
-    fieldName: 'file',
-    httpMethod: 'POST',
-    uploadType: FileSystem.FileSystemUploadType.MULTIPART,
-    headers: token
-      ? { 'X-Auth-Token': `Bearer ${token}`, Authorization: `Bearer ${token}` }
-      : undefined,
-    parameters: {
-      folder: safeFolder,
-    },
-    mimeType,
-  });
+  const headers = token
+    ? {
+        Authorization: `Bearer ${token}`,
+        'X-Auth-Token': `Bearer ${token}`,
+      }
+    : undefined;
 
-  let data: any = {};
-  if (uploadResult.body) {
-    try {
-      data = JSON.parse(uploadResult.body);
-    } catch (err) {
-      const snippet = uploadResult.body.slice(0, 200);
-      console.warn('[upload] Non-JSON response', { uploadUrl, status: uploadResult.status, snippet });
-      throw new Error(`Upload failed: ${snippet || 'Invalid response from server'}`);
-    }
-  }
-
-  const resolvedUrl = data?.imageUrl || data?.fileUrl || (data?.path ? `${env.uploadBaseUrl}/media/${data.path}` : null);
-
-  if (uploadResult.status !== 200 || !resolvedUrl) {
-    const message = data?.message || data?.error || `Upload failed (${uploadResult.status}).`;
-    console.warn('[upload] Upload failed', {
-      uploadUrl,
-      status: uploadResult.status,
-      body: uploadResult.body?.slice(0, 200),
-      message,
+  const performUpload = async (uploadUrl: string) => {
+    const uploadResult = await FileSystem.uploadAsync(uploadUrl, uri, {
+      fieldName: 'file',
+      httpMethod: 'POST',
+      uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+      headers,
+      parameters: {
+        folder: safeFolder,
+      },
+      mimeType,
     });
-    throw new Error(message);
-  }
 
-  return resolvedUrl as string;
+    let data: any = {};
+    if (uploadResult.body) {
+      try {
+        data = JSON.parse(uploadResult.body);
+      } catch (err) {
+        const snippet = uploadResult.body.slice(0, 200);
+        console.warn('[upload] Non-JSON response', { uploadUrl, status: uploadResult.status, snippet });
+        throw new Error(`Upload failed: ${snippet || 'Invalid response from server'}`);
+      }
+    }
+
+    const resolvedUrl =
+      data?.imageUrl ||
+      data?.fileUrl ||
+      (data?.path && env.uploadBaseUrl ? `${env.uploadBaseUrl}/media/${data.path}` : null);
+
+    if (uploadResult.status !== 200 || !resolvedUrl) {
+      const message = data?.message || data?.error || `Upload failed (${uploadResult.status}).`;
+      console.warn('[upload] Upload failed', {
+        uploadUrl,
+        status: uploadResult.status,
+        body: uploadResult.body?.slice(0, 200),
+        message,
+      });
+      const error = new Error(message);
+      (error as any).status = uploadResult.status;
+      throw error;
+    }
+
+    return resolvedUrl as string;
+  };
+
+  const primaryUrl = `${API_BASE_URL}/upload`;
+  try {
+    return await performUpload(primaryUrl);
+  } catch (err: any) {
+    const status = err?.status;
+    const shouldRetry = (status === 401 || status === 403) && /www\./i.test(API_BASE_URL);
+    if (!shouldRetry) throw err;
+    const fallbackBase = API_BASE_URL.replace(/www\./i, '');
+    const fallbackUrl = `${fallbackBase}/upload`;
+    console.warn('[upload] Retrying upload without www', { primaryUrl, fallbackUrl, status });
+    return await performUpload(fallbackUrl);
+  }
 };

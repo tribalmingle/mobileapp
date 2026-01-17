@@ -59,6 +59,8 @@ export default function ThreadScreen() {
   const [actioning, setActioning] = useState(false);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const isTypingRef = useRef(false);
+  const isLoadingRef = useRef(false);
+  const initialLoadRef = useRef(true);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const addNotification = useNotificationStore((s) => s.addNotification);
 
@@ -68,11 +70,16 @@ export default function ThreadScreen() {
 
   const loadThread = useCallback(async () => {
     if (!id) return;
+    if (isLoadingRef.current) return;
+    isLoadingRef.current = true;
+    if (initialLoadRef.current) {
+      setLoading(true);
+    }
     try {
       const PAGE_SIZE = 30;
 
       if (useDirect) {
-        const msgs = await fetchDirectMessages(String(id));
+        const msgs = await fetchDirectMessages(String(id), { page: 1, limit: PAGE_SIZE });
         setThread({
           id: String(id),
           participants: [{ id: String(id), name: nameParam || 'Member', photo: avatar as string | undefined }],
@@ -91,7 +98,11 @@ export default function ThreadScreen() {
       setError(err?.message || 'Could not load messages');
       setToast({ message: err?.message || 'Could not load messages', tone: 'error' });
     } finally {
-      setLoading(false);
+      isLoadingRef.current = false;
+      if (initialLoadRef.current) {
+        initialLoadRef.current = false;
+        setLoading(false);
+      }
     }
   }, [avatar, id, nameParam, useDirect]);
 
@@ -115,7 +126,7 @@ export default function ThreadScreen() {
 
   useEffect(() => {
     loadThread();
-    const interval = setInterval(loadThread, 3000);
+    const interval = useDirect ? null : setInterval(loadThread, 4000);
     const typingInterval = useDirect
       ? null
       : setInterval(() => {
@@ -134,7 +145,7 @@ export default function ThreadScreen() {
       }
     });
     return () => {
-      clearInterval(interval);
+      if (interval) clearInterval(interval);
       if (typingInterval) clearInterval(typingInterval);
       sub.remove();
     };

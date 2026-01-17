@@ -5,14 +5,10 @@ const normalizeApiBaseUrl = (value?: string) => {
   return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
 };
 
-const normalizeUploadBaseUrl = (value?: string) => {
-  if (!value) return 'https://tm.d2d.ng';
-  return value.replace(/\/$/, '');
-};
 
 export const env = {
   apiBaseUrl: normalizeApiBaseUrl(process.env.EXPO_PUBLIC_API_BASE_URL),
-  uploadBaseUrl: normalizeUploadBaseUrl(process.env.EXPO_PUBLIC_UPLOAD_BASE_URL),
+  uploadBaseUrl: process.env.EXPO_PUBLIC_UPLOAD_BASE_URL,
   appEnv: process.env.EXPO_PUBLIC_APP_ENV || 'production',
   
   // Analytics providers

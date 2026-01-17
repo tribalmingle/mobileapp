@@ -60,7 +60,7 @@ const MatchCard = ({ item, onOpen }: { item: MatchUser; onOpen: () => void }) =>
       <View style={styles.actions}>
         <TouchableOpacity style={[styles.actionButton, styles.secondary]} onPress={onOpen}>
           <Ionicons name="chatbubbles" size={18} color={colors.text.primary} />
-          <Text style={styles.actionText}>Message</Text>
+          <Text style={styles.actionText}>Chat</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.actionButton, styles.primary]} onPress={onOpen}>
           <Ionicons name="videocam" size={18} color={colors.primaryDark} />
@@ -121,8 +121,21 @@ export default function MatchesScreen() {
     });
   };
 
+  const openDirectChat = (item: MatchUser) => {
+    const targetId = item.email || item.id;
+    if (!targetId) return;
+    router.push({
+      pathname: '/(tabs)/chat/[id]',
+      params: {
+        id: targetId,
+        name: item.name,
+        avatar: item.photo || '',
+      },
+    });
+  };
+
   const getMessageLabel = (item: MatchUser) =>
-    item.gender === 'male' ? 'Message him' : item.gender === 'female' ? 'Message her' : 'Message';
+    item.gender === 'male' ? 'Chat him' : item.gender === 'female' ? 'Chat her' : 'Chat';
 
   const handleAccept = async (userId: string) => {
     setActioningId(userId);
@@ -211,7 +224,7 @@ export default function MatchesScreen() {
         </TouchableOpacity>
         <TouchableOpacity style={[styles.actionButton, styles.primary]} onPress={() => openProfile(item)}>
           <Ionicons name="chatbubbles" size={18} color={colors.primaryDark} />
-          <Text style={[styles.actionText, styles.primaryText]}>Message</Text>
+          <Text style={[styles.actionText, styles.primaryText]}>Chat</Text>
         </TouchableOpacity>
       </View>
     </GlassCard>
@@ -236,7 +249,7 @@ export default function MatchesScreen() {
       <View style={styles.actions}>
         <TouchableOpacity
           style={[styles.actionButton, styles.primary, styles.fullWidthButton]}
-          onPress={() => router.push('/(tabs)/chat')}
+          onPress={() => openDirectChat(item)}
         >
           <Ionicons name="chatbubbles" size={18} color={colors.primaryDark} />
           <Text style={[styles.actionText, styles.primaryText]}>{getMessageLabel(item)}</Text>
@@ -329,7 +342,7 @@ export default function MatchesScreen() {
 
       <FlatList
         data={listForTab}
-        keyExtractor={(item) => `${tab}-${item.id}`}
+        keyExtractor={(item, index) => `${tab}-${item.id || item.email || item.name || 'item'}-${index}`}
         renderItem={({ item }) => renderForTab(item)}
         scrollEnabled={false}
         ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}

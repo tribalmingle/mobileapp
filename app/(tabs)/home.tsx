@@ -11,11 +11,11 @@ import { colors, spacing, typography, borderRadius, gradients, shadows } from '@
 import apiClient from '@/api/client';
 
 const statGradients = [
-  ['#FF6B9D', '#C44569'],
-  ['#6366F1', '#4F46E5'],
-  ['#A855F7', '#7C3AED'],
-  ['#EC4899', '#DB2777'],
-];
+  ['#FF6B9D', '#C44569'] as const,
+  ['#6366F1', '#4F46E5'] as const,
+  ['#A855F7', '#7C3AED'] as const,
+  ['#EC4899', '#DB2777'] as const,
+] as const;
 
 const quickActions = [
   { icon: 'compass', title: 'Discover', subtitle: 'Browse new members nearby', route: '/(tabs)/discover', tone: colors.secondary },
@@ -31,6 +31,9 @@ const quickActions = [
 
 export default function HomeScreen() {
   const user = useAuthStore((state) => state.user);
+  const loading = useAuthStore((state) => state.loading);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const token = useAuthStore((state) => state.token);
   const [stats, setStats] = useState([
     { label: 'Matches', value: 0 },
     { label: 'Views', value: 0 },
@@ -40,6 +43,10 @@ export default function HomeScreen() {
   const [isLoadingStats, setIsLoadingStats] = useState(true);
 
   useEffect(() => {
+    if (!isAuthenticated || !token) {
+      setIsLoadingStats(false);
+      return;
+    }
     const loadStats = async () => {
       try {
         const response = await apiClient.get('/users/stats');
@@ -60,7 +67,45 @@ export default function HomeScreen() {
     };
 
     loadStats();
-  }, []);
+  }, [isAuthenticated, token]);
+
+  const getDisplayName = () => {
+    if (!isAuthenticated || !user || loading) return 'there';
+
+    const normalizeFirst = (value?: string) => {
+      const cleaned = (value || '').trim();
+      if (!cleaned) return '';
+      const first = cleaned.split(' ')[0];
+      return first ? `${first[0].toUpperCase()}${first.slice(1)}` : '';
+    };
+
+    const fromEmail = (value?: string) => {
+      const email = (value || '').trim();
+      if (!email || !email.includes('@')) return '';
+      const local = email.split('@')[0] || '';
+      const firstToken = local.split(/[._-]+/)[0] || '';
+      return normalizeFirst(firstToken);
+    };
+
+    const candidates = [
+      normalizeFirst(user?.firstName),
+      normalizeFirst(user?.fullName),
+      normalizeFirst(user?.name),
+      normalizeFirst(user?.displayName),
+      normalizeFirst(user?.username),
+    ].filter(Boolean);
+
+    const nonEmailName = candidates.find((value) => !value.includes('@'));
+    if (nonEmailName) return nonEmailName;
+
+    const emailFallback = fromEmail(user?.email || user?.name);
+    if (emailFallback) return emailFallback;
+
+    return 'there';
+  };
+
+  // Show "there" while loading OR when user is not loaded yet
+  const displayName = getDisplayName();
 
   return (
     <UniversalBackground
@@ -81,7 +126,7 @@ export default function HomeScreen() {
         >
           <View style={styles.heroHeader}>
             <View>
-              <Text style={styles.greeting}>Hi {user?.name?.split(' ')[0] || 'there'}!</Text>
+              <Text style={styles.greeting}>Hi {displayName}!</Text>
               <Text style={styles.subtitle}>Ready to meet someone new?</Text>
             </View>
             <View style={styles.badge}>

@@ -54,7 +54,7 @@ export default function DiscoverScreen() {
   }, []);
 
   useEffect(() => {
-    setRecentMatches(feed.slice(1, 8));
+    setRecentMatches(feed.slice(0, 7));
   }, [feed]);
 
   const openProfile = (person: Recommendation) => {
@@ -196,11 +196,11 @@ export default function DiscoverScreen() {
   const renderMainCard = () => {
     if (!topCard) return null;
     const messageLabel =
-      topCard.gender === 'male'
-        ? 'Message him'
-        : topCard.gender === 'female'
-          ? 'Message her'
-          : 'Message';
+          topCard.gender === 'male'
+            ? 'Chat him'
+            : topCard.gender === 'female'
+              ? 'Chat her'
+              : 'Chat';
     return (
       <Animated.View style={[styles.mainCardContainer, cardStyle]} {...panResponder.panHandlers}>
         <ImageBackground
@@ -234,7 +234,18 @@ export default function DiscoverScreen() {
                 </Text>
                 <TouchableOpacity
                   style={styles.messagePill}
-                  onPress={() => router.push('/(tabs)/chat')}
+                  onPress={() => {
+                    const targetId = topCard.email || topCard.id;
+                    if (!targetId) return;
+                    router.push({
+                      pathname: '/(tabs)/chat/[id]',
+                      params: {
+                        id: targetId,
+                        name: topCard.name,
+                        avatar: topCard.photos?.[0] || '',
+                      },
+                    });
+                  }}
                   activeOpacity={0.8}
                 >
                   <Text style={styles.messageText}>{messageLabel}</Text>
@@ -385,7 +396,7 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     alignItems: 'center',
-    marginTop: spacing.xs-5,
+   marginTop: -19,
     marginBottom: spacing.md,
     paddingHorizontal: spacing.lg,
   },

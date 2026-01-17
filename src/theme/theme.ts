@@ -65,28 +65,28 @@ export const colors = {
 
 export const gradients = {
   hero: {
-    colors: ['#0A0A0A', '#1a0a2e'],
+    colors: ['#0A0A0A', '#1a0a2e'] as const,
     start: { x: 0, y: 0 },
     end: { x: 1, y: 1 },
   },
   purple: {
-    colors: ['#5B2E91', '#3D1E61'],
+    colors: ['#5B2E91', '#3D1E61'] as const,
     start: { x: 0, y: 0 },
     end: { x: 1, y: 1 },
   },
   gold: {
-    colors: ['#D4AF37', '#B8951E'],
+    colors: ['#D4AF37', '#B8951E'] as const,
     start: { x: 0, y: 0 },
     end: { x: 1, y: 1 },
   },
   royal: {
-    colors: ['#0A0A0A', '#5B2E91', '#D4AF37'],
+    colors: ['#0A0A0A', '#5B2E91', '#D4AF37'] as const,
     start: { x: 0, y: 0 },
     end: { x: 1, y: 1 },
-    locations: [0, 0.5, 1],
+    locations: [0, 0.5, 1] as const,
   },
   deepMystic: {
-    colors: ['#3D1E61', '#5B2E91'],
+    colors: ['#3D1E61', '#5B2E91'] as const,
     start: { x: 0, y: 0 },
     end: { x: 1, y: 1 },
   },

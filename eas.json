@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 6.0.0"
+    "version": ">= 6.0.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "preview": {
@@ -8,6 +9,8 @@
       "channel": "preview",
       "autoIncrement": true,
       "env": {
+        "EXPO_USE_PNPM": "1",
+        "EAS_USE_PNPM": "1",
         "EXPO_PUBLIC_APP_ENV": "preview",
         "EXPO_PUBLIC_API_BASE_URL": "https://tribalmingle.com/api",
         "EXPO_PUBLIC_UPLOAD_BASE_URL": "https://tm.d2d.ng"
@@ -20,6 +23,8 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
+        "EXPO_USE_PNPM": "1",
+        "EAS_USE_PNPM": "1",
         "EXPO_PUBLIC_APP_ENV": "development",
         "EXPO_PUBLIC_API_BASE_URL": "http://localhost:3000/api",
         "EXPO_PUBLIC_UPLOAD_BASE_URL": "https://tm.d2d.ng"
@@ -29,6 +34,8 @@
       "distribution": "internal",
       "channel": "staging",
       "env": {
+        "EXPO_USE_PNPM": "1",
+        "EAS_USE_PNPM": "1",
         "EXPO_PUBLIC_APP_ENV": "staging",
         "EXPO_PUBLIC_API_BASE_URL": "https://tribalmingle-staging.vercel.app/api",
         "EXPO_PUBLIC_UPLOAD_BASE_URL": "https://tm.d2d.ng"
@@ -38,6 +45,8 @@
       "distribution": "store",
       "channel": "production",
       "env": {
+        "EXPO_USE_PNPM": "1",
+        "EAS_USE_PNPM": "1",
         "EXPO_PUBLIC_APP_ENV": "production",
         "EXPO_PUBLIC_API_BASE_URL": "https://tribalmingle.vercel.app/api",
         "EXPO_PUBLIC_UPLOAD_BASE_URL": "https://tm.d2d.ng"

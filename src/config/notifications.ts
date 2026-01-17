@@ -7,7 +7,13 @@ import { useNotificationStore } from '../store/notificationStore';
 
 export const configureNotificationHandling = () => {
   Notifications.setNotificationHandler({
-    handleNotification: async () => ({ shouldShowAlert: true, shouldPlaySound: false, shouldSetBadge: false }),
+    handleNotification: async () => ({ 
+      shouldShowAlert: true, 
+      shouldPlaySound: false, 
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
   });
 };
 

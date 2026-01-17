@@ -5,6 +5,7 @@ export interface MatchUser {
   name: string;
   age?: number;
   gender?: 'male' | 'female' | 'non-binary' | 'other';
+  email?: string;
   tribe?: string;
   city?: string;
   country?: string;
@@ -81,6 +82,7 @@ export const fetchMatches = async (): Promise<MatchUser[]> => {
         name: m.name,
         age: m.age,
         gender: m.gender,
+        email: m.email,
         tribe: m.tribe,
         city: m.city,
         country: m.country,
@@ -108,6 +110,7 @@ export const fetchIncomingLikes = async (): Promise<MatchUser[]> => {
         name: l.name,
         age: l.age,
         gender: l.gender,
+        email: l.email,
         tribe: l.tribe,
         city: l.city,
         country: l.country,
@@ -135,6 +138,7 @@ export const fetchSentLikes = async (): Promise<MatchUser[]> => {
         name: l.name,
         age: l.age,
         gender: l.gender,
+        email: l.email,
         tribe: l.tribe,
         city: l.city,
         country: l.country,
@@ -162,6 +166,7 @@ export const fetchViews = async (): Promise<MatchUser[]> => {
         name: v.name,
         age: v.age,
         gender: v.gender,
+        email: v.email,
         tribe: v.tribe,
         city: v.city,
         country: v.country,

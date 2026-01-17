@@ -13,13 +13,14 @@ type PrimaryButtonProps = {
 
 // Thin wrapper to match legacy PrimaryButton API
 export default function PrimaryButton({ title, onPress, disabled, loading, style, gradient }: PrimaryButtonProps) {
+  const combinedStyle: ViewStyle = { ...styles.button, ...(style as object) };
   return (
     <GoldButton
       title={title}
       onPress={onPress}
       disabled={disabled}
       loading={loading}
-      style={[styles.button, style]}
+      style={combinedStyle}
       variant={gradient ? 'primary' : 'primary'}
     />
   );

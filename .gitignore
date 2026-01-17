@@ -39,3 +39,5 @@ yarn-error.*
 android/app/build/
 ios/Pods/
 ios/build/
+builds/
+*.apk

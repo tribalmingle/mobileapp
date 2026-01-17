@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react';
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import UniversalBottomNav from '@/components/universal/UniversalBottomNav';
 import { useAuthStore } from '@/store/authStore';
-import { colors } from '@/theme';
 
 export default function TabsLayout() {
+  const router = useRouter();
   const loadUser = useAuthStore((state) => state.loadUser);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const loading = useAuthStore((state) => state.loading);
   const hydrated = useRef(false);
 
   useEffect(() => {
@@ -13,6 +15,13 @@ export default function TabsLayout() {
     hydrated.current = true;
     loadUser().catch(() => undefined);
   }, [loadUser]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (!isAuthenticated) {
+      router.replace('/(auth)/welcome');
+    }
+  }, [isAuthenticated, loading, router]);
 
   return (
     <Tabs

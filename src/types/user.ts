@@ -25,6 +25,11 @@ export interface User {
   _id?: string;
   email: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+  displayName?: string;
+  username?: string;
   age: number;
   gender: 'male' | 'female' | 'non-binary';
   country?: string;

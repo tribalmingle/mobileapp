@@ -92,12 +92,26 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
           : profileUser.profilePhoto
             ? [profileUser.profilePhoto]
             : [],
+    idVerification: {
+      url:
+        (profileUser as any).idVerificationUrl ||
+        (profileUser as any).verificationIdUrl ||
+        '',
+      type:
+        (profileUser as any).idVerificationType ||
+        (profileUser as any).verificationIdType ||
+        emptyProfile.idVerification.type,
+    },
+    selfiePhoto:
+      (profileUser as any).selfiePhoto ||
+      (profileUser as any).verificationSelfie ||
+      '',
     location: {
       country: profileUser.country || '',
       city: profileUser.city || '',
     },
     heritage: {
-      country: profileUser.country || '',
+      country: (profileUser as any).heritage || '',
       tribe: profileUser.tribe || '',
     },
     personalDetails: {
@@ -225,6 +239,36 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
 
   const updateProfileData = (data: Partial<ProfileData>) => {
     setProfileData((prev) => ({ ...prev, ...data }));
+    setError(null);
+  };
+
+  const getBackendStep = (wizardStep: number): number | null => {
+    switch (wizardStep) {
+      case 1: // Photos
+        return 8;
+      case 2: // Location
+        return 4;
+      case 3: // Heritage
+        return 2;
+      case 4: // Personal Details (missing required backend fields)
+        return null;
+      case 5: // Work (not supported by onboarding/step)
+        return null;
+      case 6: // Faith
+        return 3;
+      case 7: // Interests
+        return 6;
+      case 8: // Bio
+        return 5;
+      case 9: // Looking For
+        return 7;
+      case 10: // ID Verification
+        return 10;
+      case 11: // Selfie
+        return 9;
+      default:
+        return null;
+    }
   };
 
   const persistStep = async (step: number) => {
@@ -236,13 +280,16 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
     setError(null);
 
     try {
-      // Use new onboarding/step endpoint
-      const stepData = convertPayloadToStepData(step, payload);
-      const response = await submitOnboardingStep(step, stepData);
-      
-      if (response.profile) {
-        // Update user with latest profile data
-        updateUser(response.profile);
+      // Use new onboarding/step endpoint when the backend expects this step
+      const backendStep = getBackendStep(step);
+      if (backendStep) {
+        const stepData = convertPayloadToStepData(backendStep, payload);
+        const response = await submitOnboardingStep(backendStep, stepData);
+
+        if (response.profile) {
+          // Update user with latest profile data
+          updateUser(response.profile);
+        }
       }
       
       // Also try old endpoint for backward compatibility
@@ -266,9 +313,9 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
   // Convert wizard payload to step data format expected by backend
   const convertPayloadToStepData = (step: number, payload: ProfileDraftPayload): any => {
     switch (step) {
-      case 1: // Photos
+      case 8: // Photo Upload
         return { photos: payload.photos };
-      case 2: // Location
+      case 4: // Location
         return {
           city: payload.location?.city,
           state: payload.location?.state,
@@ -276,30 +323,18 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
           latitude: payload.location?.latitude,
           longitude: payload.location?.longitude
         };
-      case 3: // Heritage
+      case 2: // Heritage
         return {
           tribe: payload.heritage?.tribe,
           heritage: payload.heritage?.country
         };
-      case 4: // Personal Details
-        return {
-          height: payload.personalDetails?.height,
-          gender: payload.personalDetails?.gender,
-          dateOfBirth: payload.personalDetails?.dateOfBirth,
-          education: payload.personalDetails?.education
-        };
-      case 5: // Work
-        return {
-          occupation: payload.work?.occupation,
-          workType: payload.work?.workType
-        };
-      case 6: // Faith
+      case 3: // Faith
         return { faith: payload.faith };
-      case 7: // Interests
+      case 6: // Interests
         return { interests: payload.interests };
-      case 8: // Bio
+      case 5: // Bio
         return { bio: payload.bio };
-      case 9: // Looking For
+      case 7: // Looking For
         return {
           lookingFor: payload.lookingFor,
           ageRangeMin: payload.ageRangeMin,
@@ -311,7 +346,7 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
           verificationIdUrl: payload.idVerificationUrl,
           verificationStatus: 'pending'
         };
-      case 11: // Selfie
+      case 9: // Selfie
         return { verificationSelfie: payload.selfiePhoto };
       default:
         return payload;
@@ -324,6 +359,7 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
       setError(validationMessage);
       return;
     }
+    setError(null);
 
     if (currentStep === totalSteps - 1) {
       await handleComplete();
@@ -352,6 +388,14 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
       await handleComplete();
       return;
     }
+
+    const validationMessage = validateStep(currentStep);
+    if (validationMessage) {
+      setError(validationMessage);
+      return;
+    }
+
+    setError(null);
 
     try {
       await persistStep(currentStep);

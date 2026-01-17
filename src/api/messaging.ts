@@ -113,9 +113,14 @@ export const fetchThreads = async (): Promise<Thread[]> => {
 };
 
 // Direct messaging (email/userId based) fallback
-export const fetchDirectMessages = async (userId: string): Promise<Message[]> => {
+export const fetchDirectMessages = async (
+  userId: string,
+  { page = 1, limit = 30 }: ThreadMessagesParams = {}
+): Promise<Message[]> => {
   try {
-    const { data } = await apiClient.get<{ success: boolean; messages?: any[] }>(`/messages/${userId}`);
+    const { data } = await apiClient.get<{ success: boolean; messages?: any[] }>(`/messages/${userId}`, {
+      params: { page, limit },
+    });
     if (Array.isArray(data?.messages)) {
       return data.messages.map(normalizeMessage);
     }

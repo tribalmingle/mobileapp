@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ScrollView, TouchableWithoutFeedback, Keyboard, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ScrollView, TouchableWithoutFeedback, Keyboard, Alert, useWindowDimensions } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography } from '@/theme';
@@ -14,9 +14,10 @@ export default function OTPVerificationScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const email = params.email as string;
+  const { width } = useWindowDimensions();
   
   const [code, setCode] = useState('');
-  const [timer, setTimer] = useState(60);
+  const [timer, setTimer] = useState(1);
   const [loading, setLoading] = useState(false);
   const [verified, setVerified] = useState(false);
   const [resending, setResending] = useState(false);
@@ -88,7 +89,7 @@ export default function OTPVerificationScreen() {
       // Call backend to resend OTP
       await apiClient.post('/auth/resend-otp', { email });
       
-      setTimer(60);
+      setTimer(1);
       setCode('');
       setVerified(false);
       hiddenInputRef.current?.focus();
@@ -105,6 +106,11 @@ export default function OTPVerificationScreen() {
     }
   };
 
+  const boxGap = spacing.sm;
+  const horizontalPadding = spacing.screenPadding;
+  const available = Math.max(0, width - horizontalPadding * 2 - boxGap * (CODE_LENGTH - 1));
+  const boxSize = Math.min(48, Math.max(36, Math.floor(available / CODE_LENGTH)));
+
   return (
     <LinearGradient colors={['#0A0A0A', '#1a0a2e']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gradient}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
@@ -115,7 +121,7 @@ export default function OTPVerificationScreen() {
             </TouchableOpacity>
 
             <Text style={styles.title}>Verify Your Email</Text>
-            <Text style={styles.subtitle}>Enter the 4-digit code we sent to your email</Text>
+            <Text style={styles.subtitle}>Enter the 6-digit code we sent to your email</Text>
 
             <GlassCard style={styles.card}>
               <TouchableOpacity onPress={refocus} onPressIn={refocus} activeOpacity={0.9}>
@@ -124,8 +130,15 @@ export default function OTPVerificationScreen() {
                     const digit = code[index] ?? '';
                     const isActive = code.length === index;
                     return (
-                      <View key={index} style={[styles.codeBox, isActive && styles.codeBoxActive]}>
-                        <Text style={styles.codeText}>{digit}</Text>
+                      <View
+                        key={index}
+                        style={[
+                          styles.codeBox,
+                          { width: boxSize, height: boxSize, borderRadius: Math.min(12, Math.round(boxSize / 4)) },
+                          isActive && styles.codeBoxActive,
+                        ]}
+                      >
+                        <Text style={[styles.codeText, { fontSize: Math.min(22, Math.max(18, Math.round(boxSize / 2.2))) }]}>{digit}</Text>
                       </View>
                     );
                   })}
@@ -187,10 +200,15 @@ const styles = StyleSheet.create({
   title: { ...typography.styles.h1, color: colors.text.primary, marginBottom: spacing.xs, fontFamily: typography.fontFamily.display },
   subtitle: { ...typography.styles.body, color: colors.text.primary, marginBottom: spacing['2xl'], fontFamily: typography.fontFamily.sans },
   card: { padding: spacing.cardPaddingLarge, backgroundColor: 'rgba(0,0,0,0.55)' },
-  codeContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.lg, gap: spacing.md },
+  codeContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: spacing.lg,
+    gap: spacing.sm,
+  },
   codeBox: {
-    width: 60,
-    height: 60,
     borderRadius: 12,
     borderWidth: 2,
     borderColor: colors.text.primary,

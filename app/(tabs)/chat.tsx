@@ -38,7 +38,7 @@ const ConversationRow = ({ thread, onPress }: { thread: Thread; onPress: () => v
             </View>
             <Text style={styles.message} numberOfLines={1}>{lastMessage}</Text>
           </View>
-          {thread.unreadCount > 0 ? (
+          {(thread.unreadCount ?? 0) > 0 ? (
             <View style={styles.unreadBadge}>
               <Text style={styles.unreadText}>{thread.unreadCount}</Text>
             </View>
@@ -80,7 +80,7 @@ export default function ChatScreen() {
         loadThreads();
         setToast({ message: 'New message', tone: 'info' });
         const title = notification?.request?.content?.title || 'New message';
-        const body = notification?.request?.content?.body;
+        const body = notification?.request?.content?.body || undefined;
         addNotification({ title, body, data: notification?.request?.content?.data as any });
       }
     });
@@ -143,7 +143,6 @@ export default function ChatScreen() {
       contentContainerStyle={styles.scrollContent}
       title="Chats"
       toast={toast}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.secondary} />}
     >
       <View style={styles.headerRow}>
         <Text style={styles.subtitle}>Recent conversations</Text>
