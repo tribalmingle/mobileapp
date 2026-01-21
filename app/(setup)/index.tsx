@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, Dimensions, ActivityIndicator, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -81,57 +81,11 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
   };
 
   const [profileData, setProfileData] = useState<ProfileData>(emptyProfile);
+  const profileDataRef = useRef(profileData);
 
-  const mapUserToProfile = (profileUser: User): ProfileData => ({
-    ...emptyProfile,
-    photos:
-      profileUser.photos && profileUser.photos.length
-        ? profileUser.photos
-        : profileUser.profilePhotos && profileUser.profilePhotos.length
-          ? profileUser.profilePhotos
-          : profileUser.profilePhoto
-            ? [profileUser.profilePhoto]
-            : [],
-    idVerification: {
-      url:
-        (profileUser as any).idVerificationUrl ||
-        (profileUser as any).verificationIdUrl ||
-        '',
-      type:
-        (profileUser as any).idVerificationType ||
-        (profileUser as any).verificationIdType ||
-        emptyProfile.idVerification.type,
-    },
-    selfiePhoto:
-      (profileUser as any).selfiePhoto ||
-      (profileUser as any).verificationSelfie ||
-      '',
-    location: {
-      country: profileUser.country || '',
-      city: profileUser.city || '',
-    },
-    heritage: {
-      country: (profileUser as any).heritage || '',
-      tribe: profileUser.tribe || '',
-    },
-    personalDetails: {
-      ...emptyProfile.personalDetails,
-      height: profileUser.height ? String(profileUser.height) : '',
-      bodyType: (profileUser as any).bodyType || '',
-      maritalStatus: (profileUser as any).maritalStatus || '',
-      education: profileUser.education || '',
-    },
-    work: {
-      occupation: profileUser.occupation || '',
-      workType: '',
-    },
-    faith: (profileUser as any).faith || (profileUser as any).religion || '',
-    interests: profileUser.interests || [],
-    bio: profileUser.bio || '',
-    lookingFor: Array.isArray(profileUser.relationshipGoals) && profileUser.relationshipGoals.length
-      ? profileUser.relationshipGoals[0]
-      : (profileUser as any).lookingFor || '',
-  });
+  useEffect(() => {
+    profileDataRef.current = profileData;
+  }, [profileData]);
 
   useEffect(() => {
     if (user && !hydratedFromUser) {
@@ -147,6 +101,12 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
       setHydratedFromUser(true);
     }
   }, [user, hydratedFromUser]);
+
+  useEffect(() => {
+    if (!error) return;
+    const timeoutId = setTimeout(() => setError(null), 3000);
+    return () => clearTimeout(timeoutId);
+  }, [error]);
 
   const isNonEmpty = (value: unknown) => {
     if (Array.isArray(value)) return value.length > 0;
@@ -238,7 +198,11 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
   });
 
   const updateProfileData = (data: Partial<ProfileData>) => {
-    setProfileData((prev) => ({ ...prev, ...data }));
+    setProfileData((prev) => {
+      const next = { ...prev, ...data };
+      profileDataRef.current = next;
+      return next;
+    });
     setError(null);
   };
 
@@ -460,31 +424,32 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
   };
 
   const validateStep = (step: number): string | null => {
+    const data = profileDataRef.current;
     switch (step) {
       case 1:
-        return profileData.photos.length > 0 ? null : 'Please upload at least one photo to continue.';
+        return data.photos.length > 0 ? null : 'Please upload at least one photo to continue.';
       case 2:
-        return profileData.location.country && profileData.location.city
+        return data.location.country && data.location.city
           ? null
           : 'Please add your country and city (or detect location).';
       case 3:
-        return profileData.heritage.tribe ? null : 'Please add your tribe (heritage).';
+        return data.heritage.tribe ? null : 'Please add your tribe (heritage).';
       case 4:
-        return profileData.personalDetails.education ? null : 'Please add at least your education.';
+        return data.personalDetails.education ? null : 'Please add at least your education.';
       case 5:
-        return profileData.work.occupation ? null : 'Please add your occupation.';
+        return data.work.occupation ? null : 'Please add your occupation.';
       case 6:
-        return profileData.faith ? null : 'Please select your faith.';
+        return data.faith ? null : 'Please select your faith.';
       case 7:
-        return profileData.interests.length ? null : 'Please select at least one interest.';
+        return data.interests.length ? null : 'Please select at least one interest.';
       case 8:
-        return profileData.bio ? null : 'Please add a short bio.';
+        return data.bio ? null : 'Please add a short bio.';
       case 9:
-        return profileData.lookingFor ? null : 'Please tell us what you are looking for.';
+        return data.lookingFor ? null : 'Please tell us what you are looking for.';
       case 10:
-        return profileData.idVerification.url ? null : 'Please upload an ID document.';
+        return data.idVerification.url ? null : 'Please upload an ID document.';
       case 11:
-        return profileData.selfiePhoto ? null : 'Please upload a selfie for verification.';
+        return data.selfiePhoto ? null : 'Please upload a selfie for verification.';
       default:
         return null;
     }
