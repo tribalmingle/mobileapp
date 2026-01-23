@@ -1,4 +1,5 @@
 (global as any).__DEV__ = true;
+process.env.EXPO_PUBLIC_DEMO_MODE = 'true';
 
 require('@testing-library/jest-native/extend-expect');
 

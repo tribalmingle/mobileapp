@@ -9,11 +9,20 @@ export interface Recommendation {
   tribe?: string;
   city?: string;
   country?: string;
+  heritage?: string;
+  countryOfOrigin?: string;
+  cityOfOrigin?: string;
+  religion?: string;
+  lookingFor?: string;
+  relationshipGoals?: string[];
   bio?: string;
   prompt?: string;
   interests?: string[];
   compatibility?: number;
   matchPercent?: number;
+  matchReasons?: string[];
+  matchBreakdown?: Array<{ key: string; label: string; score: number }>;
+  loveLanguage?: string;
   verified?: boolean;
   photos: string[];
 }
@@ -46,9 +55,20 @@ const mapUserToRecommendation = (u: any): Recommendation => ({
   tribe: u.tribe,
   city: u.city,
   country: u.country,
+  heritage: u.heritage,
+  countryOfOrigin: u.countryOfOrigin,
+  cityOfOrigin: u.cityOfOrigin,
+  religion: u.religion || u.faith,
+  lookingFor: u.lookingFor,
+  relationshipGoals: u.relationshipGoals,
   bio: u.bio,
   interests: u.interests,
+  loveLanguage: u.loveLanguage,
   verified: u.verified,
+  compatibility: u.compatibility ?? u.matchPercent,
+  matchPercent: u.matchPercent ?? u.compatibility,
+  matchReasons: u.matchReasons,
+  matchBreakdown: u.matchBreakdown,
   photos:
     Array.isArray(u.profilePhotos) && u.profilePhotos.length > 0
       ? u.profilePhotos

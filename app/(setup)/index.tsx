@@ -34,7 +34,7 @@ interface ProfileData {
   photos: string[];
   idVerification: { url: string; type: string };
   selfiePhoto: string;
-  location: { country: string; city: string };
+  location: { country: string; city: string; state?: string; latitude?: number; longitude?: number };
   heritage: { country: string; tribe: string };
   personalDetails: {
     height: string;
@@ -45,6 +45,7 @@ interface ProfileData {
   work: { occupation: string; workType: string };
   faith: string;
   interests: string[];
+  loveLanguage: string;
   bio: string;
   lookingFor: string;
 }
@@ -65,7 +66,7 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
     photos: [],
     idVerification: { url: '', type: 'national_id' },
     selfiePhoto: '',
-    location: { country: '', city: '' },
+    location: { country: '', city: '', state: '', latitude: undefined, longitude: undefined },
     heritage: { country: '', tribe: '' },
     personalDetails: {
       height: '',
@@ -76,11 +77,67 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
     work: { occupation: '', workType: '' },
     faith: '',
     interests: [],
+    loveLanguage: '',
     bio: '',
     lookingFor: '',
   };
 
   const [profileData, setProfileData] = useState<ProfileData>(emptyProfile);
+
+  const mapUserToProfile = (profileUser: User): ProfileData => ({
+    ...emptyProfile,
+    photos:
+      profileUser.photos && profileUser.photos.length
+        ? profileUser.photos
+        : profileUser.profilePhotos && profileUser.profilePhotos.length
+          ? profileUser.profilePhotos
+          : profileUser.profilePhoto
+            ? [profileUser.profilePhoto]
+            : [],
+    idVerification: {
+      url:
+        (profileUser as any).idVerificationUrl ||
+        (profileUser as any).verificationIdUrl ||
+        '',
+      type:
+        (profileUser as any).idVerificationType ||
+        (profileUser as any).verificationIdType ||
+        emptyProfile.idVerification.type,
+    },
+    selfiePhoto:
+      (profileUser as any).selfiePhoto ||
+      (profileUser as any).verificationSelfie ||
+      '',
+    location: {
+      country: profileUser.country || '',
+      city: profileUser.city || '',
+      state: (profileUser as any).state || '',
+      latitude: (profileUser as any).latitude,
+      longitude: (profileUser as any).longitude,
+    },
+    heritage: {
+      country: (profileUser as any).heritage || '',
+      tribe: profileUser.tribe || '',
+    },
+    personalDetails: {
+      ...emptyProfile.personalDetails,
+      height: profileUser.height ? String(profileUser.height) : '',
+      bodyType: (profileUser as any).bodyType || '',
+      maritalStatus: (profileUser as any).maritalStatus || '',
+      education: profileUser.education || '',
+    },
+    work: {
+      occupation: profileUser.occupation || '',
+      workType: '',
+    },
+    faith: (profileUser as any).faith || (profileUser as any).religion || '',
+    interests: profileUser.interests || [],
+    loveLanguage: (profileUser as any).loveLanguage || '',
+    bio: profileUser.bio || '',
+    lookingFor: Array.isArray(profileUser.relationshipGoals) && profileUser.relationshipGoals.length
+      ? profileUser.relationshipGoals[0]
+      : (profileUser as any).lookingFor || '',
+  });
   const profileDataRef = useRef(profileData);
 
   useEffect(() => {
@@ -117,7 +174,7 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
   };
 
   const pruneObject = <T extends Record<string, any>>(obj: T): Partial<T> =>
-    Object.fromEntries(Object.entries(obj).filter(([, v]) => isNonEmpty(v)));
+    Object.fromEntries(Object.entries(obj).filter(([, v]) => isNonEmpty(v))) as Partial<T>;
 
   const buildPayloadForStep = (step: number, markComplete = false): ProfileDraftPayload => {
     const payload: ProfileDraftPayload = {};
@@ -156,6 +213,7 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
         break;
       case 7:
         add('interests', profileData.interests);
+        add('loveLanguage', profileData.loveLanguage);
         break;
       case 8:
         add('bio', profileData.bio);
@@ -192,6 +250,7 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
     work: profileData.work,
     faith: profileData.faith,
     interests: profileData.interests,
+    loveLanguage: profileData.loveLanguage,
     bio: profileData.bio,
     lookingFor: profileData.lookingFor,
     profileCompleted: true,
@@ -295,7 +354,7 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
       case 3: // Faith
         return { faith: payload.faith };
       case 6: // Interests
-        return { interests: payload.interests };
+        return { interests: payload.interests, loveLanguage: payload.loveLanguage };
       case 5: // Bio
         return { bio: payload.bio };
       case 7: // Looking For
@@ -441,7 +500,8 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
       case 6:
         return data.faith ? null : 'Please select your faith.';
       case 7:
-        return data.interests.length ? null : 'Please select at least one interest.';
+        if (data.interests.length < 3) return 'Please select at least 3 interests.';
+        return data.loveLanguage ? null : 'Please select your love language.';
       case 8:
         return data.bio ? null : 'Please add a short bio.';
       case 9:
@@ -518,7 +578,8 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
           <InterestsStep
             {...commonProps}
             interests={profileData.interests}
-            onUpdate={(interests) => updateProfileData({ interests })}
+            loveLanguage={profileData.loveLanguage}
+            onUpdate={(interests, loveLanguage) => updateProfileData({ interests, loveLanguage })}
           />
         );
       case 8:

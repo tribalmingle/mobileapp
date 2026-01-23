@@ -11,6 +11,8 @@ import {
   PanResponder,
   Image,
   ScrollView,
+  Alert,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -19,6 +21,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import UniversalBackground from '@/components/universal/UniversalBackground';
 import { colors, spacing, typography, borderRadius, shadows } from '@/theme';
 import { fetchRecommendations, Recommendation, sendSwipe } from '@/api/discovery';
+import { useAuthStore } from '@/store/authStore';
 
 const { width, height } = Dimensions.get('window');
 const SWIPE_THRESHOLD = 0.24 * width;
@@ -30,7 +33,9 @@ export default function DiscoverScreen() {
   const [isActioning, setIsActioning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recentMatches, setRecentMatches] = useState<Recommendation[]>([]);
+  const [whyProfile, setWhyProfile] = useState<Recommendation | null>(null);
   const position = useRef(new Animated.ValueXY()).current;
+  const currentUser = useAuthStore((state) => state.user);
 
   const topCard = feed[0];
   const leftCard = feed[1];
@@ -66,6 +71,51 @@ export default function DiscoverScreen() {
       },
     });
   };
+
+  const showMatchWhy = (person: Recommendation) => {
+    setWhyProfile(person);
+  };
+
+  const sharedRows = useMemo(() => {
+    if (!whyProfile || !currentUser) return [] as Array<{ label: string; you: string; them: string }>;
+    const normalize = (value?: string | null) => (value || '').trim().toLowerCase();
+    const currentLookingFor =
+      currentUser.lookingFor || (Array.isArray(currentUser.relationshipGoals) ? currentUser.relationshipGoals[0] : '');
+    const theirLookingFor =
+      whyProfile.lookingFor || (Array.isArray(whyProfile.relationshipGoals) ? whyProfile.relationshipGoals[0] : '');
+    const currentReligion = currentUser.religion || (currentUser as any).faith;
+    const theirReligion = whyProfile.religion || (whyProfile as any).faith;
+    const currentOrigin = currentUser.heritage || currentUser.countryOfOrigin;
+    const theirOrigin = whyProfile.heritage || whyProfile.countryOfOrigin;
+
+    const matches: Array<{ label: string; you: string; them: string }> = [];
+    const pushIfSame = (label: string, you?: string | null, them?: string | null) => {
+      if (!you || !them) return;
+      if (normalize(you) === normalize(them)) {
+        matches.push({ label, you, them });
+      }
+    };
+
+    pushIfSame('Tribe', currentUser.tribe, whyProfile.tribe);
+    pushIfSame('City', currentUser.city, whyProfile.city);
+    pushIfSame('Country', currentUser.country, whyProfile.country);
+    pushIfSame('Origin', currentOrigin, theirOrigin);
+    pushIfSame('Religion', currentReligion, theirReligion);
+    pushIfSame('Love language', currentUser.loveLanguage, whyProfile.loveLanguage);
+    pushIfSame('Looking for', currentLookingFor, theirLookingFor);
+
+    const youInterests = new Set((currentUser.interests || []).map((item) => normalize(item)).filter(Boolean));
+    const sharedInterests = (whyProfile.interests || []).filter((item) => youInterests.has(normalize(item)));
+    if (sharedInterests.length) {
+      matches.push({
+        label: 'Shared interests',
+        you: sharedInterests.slice(0, 4).join(', '),
+        them: sharedInterests.slice(0, 4).join(', '),
+      });
+    }
+
+    return matches;
+  }, [whyProfile, currentUser]);
 
   const focusCard = (personId: string) => {
     setFeed((prev) => {
@@ -221,6 +271,10 @@ export default function DiscoverScreen() {
               {topCard.matchPercent || topCard.compatibility || 95}% Match
             </Text>
           </View>
+          <TouchableOpacity style={styles.matchWhy} onPress={() => showMatchWhy(topCard)}>
+            <Text style={styles.matchWhyText}>See why</Text>
+            <Ionicons name="chevron-forward" size={12} color="#FFFFFF" />
+          </TouchableOpacity>
           
           {/* Profile details at bottom */}
           <View style={styles.cardContent}>
@@ -367,6 +421,37 @@ export default function DiscoverScreen() {
             ))}
           </ScrollView>
         </View>
+
+        <Modal transparent visible={!!whyProfile} animationType="fade" onRequestClose={() => setWhyProfile(null)}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Why this match</Text>
+                <TouchableOpacity onPress={() => setWhyProfile(null)}>
+                  <Ionicons name="close" size={20} color={colors.text.primary} />
+                </TouchableOpacity>
+              </View>
+              {sharedRows.length === 0 ? (
+                <Text style={styles.modalEmpty}>We are still learning your preferences.</Text>
+              ) : (
+                <View style={styles.modalTable}>
+                  <View style={styles.modalRowHeader}>
+                    <Text style={styles.modalHeaderCell}>Match</Text>
+                    <Text style={styles.modalHeaderCell}>You</Text>
+                    <Text style={styles.modalHeaderCell}>{whyProfile?.name || 'Them'}</Text>
+                  </View>
+                  {sharedRows.map((row) => (
+                    <View key={row.label} style={styles.modalRow}>
+                      <Text style={styles.modalCellLabel}>{row.label}</Text>
+                      <Text style={styles.modalCell}>{row.you}</Text>
+                      <Text style={styles.modalCell}>{row.them}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
+        </Modal>
       </>
     );
   };
@@ -505,6 +590,86 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 13,
     letterSpacing: 0.2,
+  },
+  matchWhy: {
+    position: 'absolute',
+    top: 52,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  matchWhyText: {
+    ...typography.caption,
+    color: colors.white,
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  modalTitle: {
+    ...typography.h3,
+    color: colors.text.primary,
+  },
+  modalEmpty: {
+    ...typography.body,
+    color: colors.text.secondary,
+  },
+  modalTable: {
+    gap: spacing.sm,
+  },
+  modalRowHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingBottom: spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  modalHeaderCell: {
+    flex: 1,
+    ...typography.caption,
+    color: colors.text.secondary,
+    fontWeight: '600',
+  },
+  modalCellLabel: {
+    flex: 1,
+    ...typography.caption,
+    color: colors.text.secondary,
+  },
+  modalCell: {
+    flex: 1,
+    ...typography.body,
+    color: colors.text.primary,
   },
   
   // Profile info at bottom of card

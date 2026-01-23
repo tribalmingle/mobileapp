@@ -5,7 +5,8 @@ import Svg, { Path } from 'react-native-svg';
 
 interface Props {
   interests: string[];
-  onUpdate: (interests: string[]) => void;
+  loveLanguage: string;
+  onUpdate: (interests: string[], loveLanguage: string) => void;
   onNext: () => void;
   onBack: () => void;
   onSkip: () => void;
@@ -18,8 +19,17 @@ const INTEREST_OPTIONS = [
   'Art', 'Sports', 'Reading', 'Movies', 'Photography', 'Fitness'
 ];
 
-const InterestsStep: React.FC<Props> = ({ interests, onUpdate, onNext, onBack, onSkip, currentStep, totalSteps }) => {
+const LOVE_LANGUAGE_OPTIONS = [
+  'Words of Affirmation',
+  'Quality Time',
+  'Acts of Service',
+  'Physical Touch',
+  'Receiving Gifts'
+];
+
+const InterestsStep: React.FC<Props> = ({ interests, loveLanguage, onUpdate, onNext, onBack, onSkip, currentStep, totalSteps }) => {
   const [selected, setSelected] = useState<string[]>(interests);
+  const [selectedLoveLanguage, setSelectedLoveLanguage] = useState<string>(loveLanguage);
 
   const toggle = (interest: string) => {
     if (selected.includes(interest)) {
@@ -30,7 +40,7 @@ const InterestsStep: React.FC<Props> = ({ interests, onUpdate, onNext, onBack, o
   };
 
   const handleContinue = () => {
-    onUpdate(selected);
+    onUpdate(selected, selectedLoveLanguage);
     onNext();
   };
 
@@ -70,6 +80,22 @@ const InterestsStep: React.FC<Props> = ({ interests, onUpdate, onNext, onBack, o
             </TouchableOpacity>
           ))}
         </View>
+
+        <Text style={[styles.subtitle, styles.sectionSpacing]}>Love language</Text>
+        <Text style={styles.description}>How do you prefer to receive love?</Text>
+        <View style={styles.optionsContainer}>
+          {LOVE_LANGUAGE_OPTIONS.map((language) => (
+            <TouchableOpacity
+              key={language}
+              style={[styles.option, selectedLoveLanguage === language && styles.optionSelected]}
+              onPress={() => setSelectedLoveLanguage(language)}
+            >
+              <Text style={[styles.optionText, selectedLoveLanguage === language && styles.optionTextSelected]}>
+                {language}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </ScrollView>
 
       <View style={styles.actions}>
@@ -97,6 +123,7 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingBottom: 120 },
   subtitle: { fontSize: 18, color: '#FFFFFF', fontWeight: '600', marginBottom: 8 },
   description: { fontSize: 14, color: 'rgba(255, 255, 255, 0.7)', marginBottom: 16 },
+  sectionSpacing: { marginTop: 24 },
   optionsContainer: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 },
   option: { paddingHorizontal: 20, paddingVertical: 12, backgroundColor: 'rgba(255, 255, 255, 0.15)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)', marginHorizontal: 6, marginBottom: 10 },
   optionSelected: { backgroundColor: '#FF6B9D', borderColor: '#FF6B9D' },

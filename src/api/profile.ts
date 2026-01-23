@@ -6,7 +6,7 @@ export interface ProfileUpdatePayload {
   selfiePhoto: string;
   idVerificationUrl: string;
   idVerificationType: string;
-  location: { country: string; city: string };
+  location: { country: string; city: string; state?: string; latitude?: number; longitude?: number };
   heritage: { country: string; tribe: string };
   personalDetails: {
     height: string;
@@ -17,6 +17,7 @@ export interface ProfileUpdatePayload {
   work: { occupation: string; workType: string };
   faith: string;
   interests: string[];
+  loveLanguage?: string;
   bio: string;
   lookingFor: string;
   ageRangeMin?: number;
@@ -44,6 +45,11 @@ const toBackendPayload = (payload: ProfileDraftPayload | ProfileUpdatePayload) =
   if ('bio' in payload && payload.bio !== undefined) body.bio = payload.bio;
   if (payload.location?.country) body.country = payload.location.country;
   if (payload.location?.city) body.city = payload.location.city;
+  if (payload.location?.state) body.state = payload.location.state;
+  if (payload.location?.latitude !== undefined && payload.location?.longitude !== undefined) {
+    body.latitude = payload.location.latitude;
+    body.longitude = payload.location.longitude;
+  }
   if (payload.heritage?.country) body.heritage = payload.heritage.country;
   if (payload.heritage?.tribe) body.tribe = payload.heritage.tribe;
 
@@ -56,6 +62,7 @@ const toBackendPayload = (payload: ProfileDraftPayload | ProfileUpdatePayload) =
   if (payload.work?.occupation) body.occupation = payload.work.occupation;
   if (payload.faith) body.religion = payload.faith;
   if (payload.interests) body.interests = payload.interests;
+  if (payload.loveLanguage) body.loveLanguage = payload.loveLanguage;
   if (payload.lookingFor) body.lookingFor = payload.lookingFor;
 
   if (payload.photos) {

@@ -34,6 +34,9 @@ export interface User {
   gender: 'male' | 'female' | 'non-binary';
   country?: string;
   city?: string;
+  heritage?: string;
+  countryOfOrigin?: string;
+  cityOfOrigin?: string;
   tribe?: string;
   bio?: string;
   height?: number;
@@ -41,8 +44,11 @@ export interface User {
   maritalStatus?: string;
   education?: string;
   occupation?: string;
+  religion?: string;
+  lookingFor?: string;
   relationshipGoals?: string[];
   interests?: string[];
+  loveLanguage?: string;
   photos?: string[];
   profilePhoto?: string;
   profilePhotos?: string[];
@@ -82,5 +88,6 @@ export interface SignupData {
   occupation?: string;
   relationshipGoals?: string[];
   interests?: string[];
+  loveLanguage?: string;
   dateOfBirth?: string;
 }

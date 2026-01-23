@@ -6,6 +6,7 @@ import UniversalBackground from '@/components/universal/UniversalBackground';
 import GlassCard from '@/components/GlassCard';
 import { colors, spacing, typography, borderRadius } from '@/theme';
 import { acceptLike, declineLike, fetchIncomingLikes, fetchMatches, fetchSentLikes, fetchViews, MatchUser } from '@/api/matches';
+import { useAuthStore } from '@/store/authStore';
 
 type InboxTab = 'incoming' | 'sent' | 'views' | 'matches';
 
@@ -73,6 +74,7 @@ const MatchCard = ({ item, onOpen }: { item: MatchUser; onOpen: () => void }) =>
 
 export default function MatchesScreen() {
   const router = useRouter();
+  const currentUser = useAuthStore((state) => state.user);
   const [matches, setMatches] = useState<MatchUser[]>([]);
   const [incomingLikes, setIncomingLikes] = useState<MatchUser[]>([]);
   const [sentLikes, setSentLikes] = useState<MatchUser[]>([]);
@@ -81,6 +83,37 @@ export default function MatchesScreen() {
   const [error, setError] = useState<string | null>(null);
   const [actioningId, setActioningId] = useState<string | null>(null);
   const [tab, setTab] = useState<InboxTab>('incoming');
+
+  const getPriority = (candidate: MatchUser) => {
+    if (!currentUser) return 4;
+    const normalize = (value?: string | null) => (value || '').trim().toLowerCase();
+    const sameTribe =
+      currentUser.tribe && candidate.tribe && normalize(currentUser.tribe) === normalize(candidate.tribe);
+    const sameCity = currentUser.city && candidate.city && normalize(currentUser.city) === normalize(candidate.city);
+    const sameCountry =
+      currentUser.country && candidate.country && normalize(currentUser.country) === normalize(candidate.country);
+    const currentOrigin = currentUser.heritage || currentUser.countryOfOrigin;
+    const candidateOrigin = (candidate as any).heritage || (candidate as any).countryOfOrigin;
+    const sameOrigin =
+      currentOrigin && candidateOrigin && normalize(currentOrigin) === normalize(candidateOrigin);
+
+    if (sameTribe && sameCity) return 0;
+    if (sameTribe && (sameCountry || sameOrigin)) return 1;
+    if (sameCountry && sameCity) return 2;
+    if (sameCountry || sameOrigin) return 3;
+    return 4;
+  };
+
+  const sortByPriority = (list: MatchUser[]) =>
+    list
+      .map((item, index) => ({ item, index }))
+      .sort((a, b) => {
+        const aPriority = getPriority(a.item);
+        const bPriority = getPriority(b.item);
+        if (aPriority !== bPriority) return aPriority - bPriority;
+        return a.index - b.index;
+      })
+      .map((entry) => entry.item);
 
   const loadData = async () => {
     setLoading(true);
@@ -92,10 +125,10 @@ export default function MatchesScreen() {
         fetchSentLikes(),
         fetchViews(),
       ]);
-      setMatches(m);
-      setIncomingLikes(likes);
-      setSentLikes(sent);
-      setViews(seen);
+      setMatches(sortByPriority(m));
+      setIncomingLikes(sortByPriority(likes));
+      setSentLikes(sortByPriority(sent));
+      setViews(sortByPriority(seen));
     } catch (err: any) {
       setError(err?.message || 'Could not load matches');
     } finally {

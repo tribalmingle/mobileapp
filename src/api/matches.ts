@@ -9,6 +9,9 @@ export interface MatchUser {
   tribe?: string;
   city?: string;
   country?: string;
+  heritage?: string;
+  countryOfOrigin?: string;
+  cityOfOrigin?: string;
   bio?: string;
   interests?: string[];
   photo?: string;
@@ -86,6 +89,9 @@ export const fetchMatches = async (): Promise<MatchUser[]> => {
         tribe: m.tribe,
         city: m.city,
         country: m.country,
+        heritage: m.heritage,
+        countryOfOrigin: m.countryOfOrigin,
+        cityOfOrigin: m.cityOfOrigin,
         bio: m.bio,
         interests: m.interests,
         photo: m.profilePhoto || m.photo,
@@ -114,6 +120,9 @@ export const fetchIncomingLikes = async (): Promise<MatchUser[]> => {
         tribe: l.tribe,
         city: l.city,
         country: l.country,
+        heritage: l.heritage,
+        countryOfOrigin: l.countryOfOrigin,
+        cityOfOrigin: l.cityOfOrigin,
         bio: l.bio,
         interests: l.interests,
         photo: l.profilePhoto || l.photo,
@@ -142,6 +151,9 @@ export const fetchSentLikes = async (): Promise<MatchUser[]> => {
         tribe: l.tribe,
         city: l.city,
         country: l.country,
+        heritage: l.heritage,
+        countryOfOrigin: l.countryOfOrigin,
+        cityOfOrigin: l.cityOfOrigin,
         bio: l.bio,
         interests: l.interests,
         photo: l.profilePhoto || l.photo,
@@ -170,6 +182,9 @@ export const fetchViews = async (): Promise<MatchUser[]> => {
         tribe: v.tribe,
         city: v.city,
         country: v.country,
+        heritage: v.heritage,
+        countryOfOrigin: v.countryOfOrigin,
+        cityOfOrigin: v.cityOfOrigin,
         bio: v.bio,
         interests: v.interests,
         photo: v.profilePhoto || v.photo,

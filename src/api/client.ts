@@ -2,8 +2,8 @@ import axios from 'axios';
 import * as SecureStore from '@/utils/secureStore';
 import { env } from '@/config/env';
 
-// Disable demo mode for real API wiring; can be toggled via env if needed.
-const DEMO_MODE = false;
+// Demo mode is opt-in via env only.
+const DEMO_MODE = process.env.EXPO_PUBLIC_DEMO_MODE === 'true';
 export const API_BASE_URL = env.apiBaseUrl;
 
 const apiClient = axios.create({

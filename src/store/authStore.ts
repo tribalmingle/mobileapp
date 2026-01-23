@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import * as SecureStore from '@/utils/secureStore';
-import apiClient, { API_BASE_URL } from '@/api/client';
+import apiClient, { API_BASE_URL, isDemoMode } from '@/api/client';
 import axios from 'axios';
 import { registerDeviceToken } from '../api/notifications';
 import { identifyUser, trackEvent, captureError } from '@/lib/analytics';
@@ -35,6 +35,21 @@ export const useAuthStore = create<AuthState>((set) => ({
   login: async (email: string, password: string) => {
     console.log('[AUTH] Starting login...', { email });
     set({ loading: true, error: null });
+
+    if (isDemoMode()) {
+      const demoUser: User = {
+        id: 'demo-user-2',
+        email,
+        name: 'Demo User',
+        age: 32,
+        gender: 'female',
+      } as User;
+      const token = `demo-token-${Date.now()}`;
+      await SecureStore.setItemAsync('auth_token', token);
+      await SecureStore.setItemAsync('demo_user_data', JSON.stringify(demoUser));
+      set({ user: demoUser, token, isAuthenticated: true, loading: false, error: null });
+      return;
+    }
     
     const SIGNIN_TIMEOUT_MS = 12000;
     const SIGNIN_RETRY_TIMEOUT_MS = 25000;
@@ -98,6 +113,20 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   signup: async (data: SignupData) => {
     set({ loading: true, error: null });
+    if (isDemoMode()) {
+      const demoUser: User = {
+        id: 'demo-user-signup',
+        email: data.email,
+        name: data.name,
+        age: data.age,
+        gender: data.gender,
+      } as User;
+      const token = `demo-token-${Date.now()}`;
+      await SecureStore.setItemAsync('auth_token', token);
+      await SecureStore.setItemAsync('demo_user_data', JSON.stringify(demoUser));
+      set({ user: demoUser, token, isAuthenticated: true, loading: false, error: null });
+      return;
+    }
     try {
       const response = await apiClient.post<AuthResponse>('/auth/signup', data);
       const { token, user } = response.data;
@@ -137,6 +166,21 @@ export const useAuthStore = create<AuthState>((set) => ({
     const token = await SecureStore.getItemAsync('auth_token');
     if (!token) {
       set({ user: null, token: null, isAuthenticated: false });
+      return;
+    }
+
+    if (isDemoMode()) {
+      const cached = await SecureStore.getItemAsync('demo_user_data');
+      if (cached) {
+        try {
+          const demoUser = JSON.parse(cached) as User;
+          set({ user: demoUser, token, isAuthenticated: true, loading: false, error: null });
+          return;
+        } catch {
+          await SecureStore.deleteItemAsync('demo_user_data');
+        }
+      }
+      set({ user: null, token, isAuthenticated: false, loading: false });
       return;
     }
 

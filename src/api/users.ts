@@ -8,12 +8,22 @@ export type UserProfile = {
   tribe?: string;
   city?: string;
   country?: string;
+  heritage?: string;
+  countryOfOrigin?: string;
+  cityOfOrigin?: string;
+  religion?: string;
+  lookingFor?: string;
   bio?: string;
   interests?: string[];
+  loveLanguage?: string;
   verified?: boolean;
   occupation?: string;
   education?: string;
   relationshipGoals?: string[];
+  compatibility?: number;
+  matchPercent?: number;
+  matchReasons?: string[];
+  matchBreakdown?: Array<{ key: string; label: string; score: number }>;
   photos: string[];
 };
 
@@ -32,12 +42,22 @@ const mapUser = (raw: any): UserProfile => {
     tribe: raw?.tribe,
     city: raw?.city,
     country: raw?.country,
+    heritage: raw?.heritage,
+    countryOfOrigin: raw?.countryOfOrigin,
+    cityOfOrigin: raw?.cityOfOrigin,
+    religion: raw?.religion || raw?.faith,
+    lookingFor: raw?.lookingFor,
     bio: raw?.bio,
     interests: raw?.interests,
+    loveLanguage: raw?.loveLanguage,
     verified: raw?.verified,
     occupation: raw?.occupation,
     education: raw?.education,
     relationshipGoals: raw?.relationshipGoals,
+    compatibility: raw?.compatibility,
+    matchPercent: raw?.matchPercent,
+    matchReasons: raw?.matchReasons,
+    matchBreakdown: raw?.matchBreakdown,
     photos,
   };
 };

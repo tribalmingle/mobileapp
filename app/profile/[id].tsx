@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +21,7 @@ import GlassCard from '@/components/GlassCard';
 import GoldButton from '@/components/universal/GoldButton';
 import { colors, spacing, typography, borderRadius, gradients } from '@/theme';
 import { User } from '@/types/user';
+import { useAuthStore } from '@/store/authStore';
 
 const { width } = Dimensions.get('window');
 
@@ -31,10 +33,19 @@ interface ProfileDetail extends Partial<User> {
   tribe?: string;
   city?: string;
   country?: string;
+  heritage?: string;
+  countryOfOrigin?: string;
+  cityOfOrigin?: string;
+  religion?: string;
+  lookingFor?: string;
   bio?: string;
   photos: string[];
   interests?: string[];
   compatibility?: number;
+  matchPercent?: number;
+  matchReasons?: string[];
+  matchBreakdown?: Array<{ key: string; label: string; score: number }>;
+  loveLanguage?: string;
   verified?: boolean;
   occupation?: string;
   education?: string;
@@ -77,6 +88,8 @@ export default function ProfileDetailScreen() {
   const [isLoading, setIsLoading] = useState(!initialProfile);
   const [error, setError] = useState<string | null>(null);
   const galleryRef = useRef<ScrollView>(null);
+  const [whyOpen, setWhyOpen] = useState(false);
+  const currentUser = useAuthStore((state) => state.user);
 
   useEffect(() => {
     if (!initialProfile) return;
@@ -100,6 +113,8 @@ export default function ProfileDetailScreen() {
             id: loaded.id || String(params.id),
             name: loaded.name || 'Unknown',
             photos: loaded.photos && loaded.photos.length > 0 ? loaded.photos : (prev?.photos || []),
+            matchReasons: loaded.matchReasons ?? prev?.matchReasons,
+            matchBreakdown: loaded.matchBreakdown ?? prev?.matchBreakdown,
           }));
         } else {
           setError('Profile not found');
@@ -221,7 +236,50 @@ export default function ProfileDetailScreen() {
     );
   }
 
-  const compatibility = profile.compatibility ?? 90;
+  const compatibility = profile.matchPercent ?? profile.compatibility ?? 90;
+  const matchWhy = profile.matchReasons?.length
+    ? profile.matchReasons
+    : profile.matchBreakdown?.map((item) => item.label) || [];
+  const sharedRows = useMemo(() => {
+    if (!profile || !currentUser) return [] as Array<{ label: string; you: string; them: string }>;
+    const normalize = (value?: string | null) => (value || '').trim().toLowerCase();
+    const currentLookingFor =
+      currentUser.lookingFor || (Array.isArray(currentUser.relationshipGoals) ? currentUser.relationshipGoals[0] : '');
+    const theirLookingFor =
+      profile.lookingFor || (Array.isArray(profile.relationshipGoals) ? profile.relationshipGoals[0] : '');
+    const currentReligion = currentUser.religion || (currentUser as any).faith;
+    const theirReligion = profile.religion || (profile as any).faith;
+    const currentOrigin = currentUser.heritage || currentUser.countryOfOrigin;
+    const theirOrigin = profile.heritage || profile.countryOfOrigin;
+
+    const matches: Array<{ label: string; you: string; them: string }> = [];
+    const pushIfSame = (label: string, you?: string | null, them?: string | null) => {
+      if (!you || !them) return;
+      if (normalize(you) === normalize(them)) {
+        matches.push({ label, you, them });
+      }
+    };
+
+    pushIfSame('Tribe', currentUser.tribe, profile.tribe);
+    pushIfSame('City', currentUser.city, profile.city);
+    pushIfSame('Country', currentUser.country, profile.country);
+    pushIfSame('Origin', currentOrigin, theirOrigin);
+    pushIfSame('Religion', currentReligion, theirReligion);
+    pushIfSame('Love language', currentUser.loveLanguage, profile.loveLanguage);
+    pushIfSame('Looking for', currentLookingFor, theirLookingFor);
+
+    const youInterests = new Set((currentUser.interests || []).map((item) => normalize(item)).filter(Boolean));
+    const sharedInterests = (profile.interests || []).filter((item) => youInterests.has(normalize(item)));
+    if (sharedInterests.length) {
+      matches.push({
+        label: 'Shared interests',
+        you: sharedInterests.slice(0, 4).join(', '),
+        them: sharedInterests.slice(0, 4).join(', '),
+      });
+    }
+
+    return matches;
+  }, [profile, currentUser]);
 
   return (
     <LinearGradient
@@ -320,6 +378,15 @@ export default function ProfileDetailScreen() {
                     <Ionicons name="sparkles" size={16} color={colors.primaryDark} />
                     <Text style={styles.badgeText}>{compatibility}% match</Text>
                   </View>
+                  <TouchableOpacity
+                    style={styles.whyButton}
+                    onPress={() => {
+                      setWhyOpen(true);
+                    }}
+                  >
+                    <Text style={styles.whyButtonText}>See why</Text>
+                    <Ionicons name="chevron-forward" size={12} color={colors.primaryDark} />
+                  </TouchableOpacity>
                 </View>
               </View>
 
@@ -353,6 +420,11 @@ export default function ProfileDetailScreen() {
                   icon="heart"
                   label="Looking for"
                   value={profile.relationshipGoals?.join(', ') || 'Meaningful connection'}
+                />
+                <DetailRow
+                  icon="chatbubbles"
+                  label="Love language"
+                  value={profile.loveLanguage || 'Not shared yet'}
                 />
               </View>
 
@@ -400,6 +472,37 @@ export default function ProfileDetailScreen() {
           </View>
         </ScrollView>
       </SafeAreaView>
+
+      <Modal transparent visible={whyOpen} animationType="fade" onRequestClose={() => setWhyOpen(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Why this match</Text>
+              <TouchableOpacity onPress={() => setWhyOpen(false)}>
+                <Ionicons name="close" size={20} color={colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+            {sharedRows.length === 0 ? (
+              <Text style={styles.modalEmpty}>We are still learning your preferences.</Text>
+            ) : (
+              <View style={styles.modalTable}>
+                <View style={styles.modalRowHeader}>
+                  <Text style={styles.modalHeaderCell}>Match</Text>
+                  <Text style={styles.modalHeaderCell}>You</Text>
+                  <Text style={styles.modalHeaderCell}>{profile?.name || 'Them'}</Text>
+                </View>
+                {sharedRows.map((row) => (
+                  <View key={row.label} style={styles.modalRow}>
+                    <Text style={styles.modalCellLabel}>{row.label}</Text>
+                    <Text style={styles.modalCell}>{row.you}</Text>
+                    <Text style={styles.modalCell}>{row.them}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </LinearGradient>
   );
 }
@@ -590,6 +693,80 @@ const styles = StyleSheet.create({
     ...typography.small,
     color: colors.text.primary,
     fontWeight: '600',
+  },
+  whyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.secondary,
+  },
+  whyButtonText: {
+    ...typography.small,
+    color: colors.primaryDark,
+    fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  modalTitle: {
+    ...typography.h3,
+    color: colors.text.primary,
+  },
+  modalEmpty: {
+    ...typography.body,
+    color: colors.text.secondary,
+  },
+  modalTable: {
+    gap: spacing.sm,
+  },
+  modalRowHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingBottom: spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  modalHeaderCell: {
+    flex: 1,
+    ...typography.caption,
+    color: colors.text.secondary,
+    fontWeight: '600',
+  },
+  modalCellLabel: {
+    flex: 1,
+    ...typography.caption,
+    color: colors.text.secondary,
+  },
+  modalCell: {
+    flex: 1,
+    ...typography.body,
+    color: colors.text.primary,
   },
   sectionRow: {
     flexDirection: 'row',
