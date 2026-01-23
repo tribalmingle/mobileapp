@@ -21,6 +21,7 @@ import GlassCard from '@/components/GlassCard';
 import GoldButton from '@/components/universal/GoldButton';
 import { colors, spacing, typography, borderRadius, gradients } from '@/theme';
 import { User } from '@/types/user';
+import { inferOriginFromTribe } from '@/utils/tribeOrigin';
 import { useAuthStore } from '@/store/authStore';
 
 const { width } = Dimensions.get('window');
@@ -249,8 +250,10 @@ export default function ProfileDetailScreen() {
       profile.lookingFor || (Array.isArray(profile.relationshipGoals) ? profile.relationshipGoals[0] : '');
     const currentReligion = currentUser.religion || (currentUser as any).faith;
     const theirReligion = profile.religion || (profile as any).faith;
-    const currentOrigin = currentUser.heritage || currentUser.countryOfOrigin;
-    const theirOrigin = profile.heritage || profile.countryOfOrigin;
+    const currentOrigin =
+      currentUser.heritage || currentUser.countryOfOrigin || inferOriginFromTribe(currentUser.tribe);
+    const theirOrigin =
+      profile.heritage || profile.countryOfOrigin || inferOriginFromTribe(profile.tribe);
 
     const matches: Array<{ label: string; you: string; them: string }> = [];
     const pushIfSame = (label: string, you?: string | null, them?: string | null) => {
@@ -263,7 +266,9 @@ export default function ProfileDetailScreen() {
     pushIfSame('Tribe', currentUser.tribe, profile.tribe);
     pushIfSame('City', currentUser.city, profile.city);
     pushIfSame('Country', currentUser.country, profile.country);
-    pushIfSame('Origin', currentOrigin, theirOrigin);
+    if (currentOrigin || theirOrigin) {
+      matches.push({ label: 'Origin', you: currentOrigin || '—', them: theirOrigin || '—' });
+    }
     pushIfSame('Religion', currentReligion, theirReligion);
     pushIfSame('Love language', currentUser.loveLanguage, profile.loveLanguage);
     pushIfSame('Looking for', currentLookingFor, theirLookingFor);

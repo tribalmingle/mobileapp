@@ -22,6 +22,7 @@ import UniversalBackground from '@/components/universal/UniversalBackground';
 import { colors, spacing, typography, borderRadius, shadows } from '@/theme';
 import { fetchRecommendations, Recommendation, sendSwipe } from '@/api/discovery';
 import { useAuthStore } from '@/store/authStore';
+import { inferOriginFromTribe } from '@/utils/tribeOrigin';
 
 const { width, height } = Dimensions.get('window');
 const SWIPE_THRESHOLD = 0.24 * width;
@@ -85,8 +86,10 @@ export default function DiscoverScreen() {
       whyProfile.lookingFor || (Array.isArray(whyProfile.relationshipGoals) ? whyProfile.relationshipGoals[0] : '');
     const currentReligion = currentUser.religion || (currentUser as any).faith;
     const theirReligion = whyProfile.religion || (whyProfile as any).faith;
-    const currentOrigin = currentUser.heritage || currentUser.countryOfOrigin;
-    const theirOrigin = whyProfile.heritage || whyProfile.countryOfOrigin;
+    const currentOrigin =
+      currentUser.heritage || currentUser.countryOfOrigin || inferOriginFromTribe(currentUser.tribe);
+    const theirOrigin =
+      whyProfile.heritage || whyProfile.countryOfOrigin || inferOriginFromTribe(whyProfile.tribe);
 
     const matches: Array<{ label: string; you: string; them: string }> = [];
     const pushIfSame = (label: string, you?: string | null, them?: string | null) => {
@@ -99,7 +102,9 @@ export default function DiscoverScreen() {
     pushIfSame('Tribe', currentUser.tribe, whyProfile.tribe);
     pushIfSame('City', currentUser.city, whyProfile.city);
     pushIfSame('Country', currentUser.country, whyProfile.country);
-    pushIfSame('Origin', currentOrigin, theirOrigin);
+    if (currentOrigin || theirOrigin) {
+      matches.push({ label: 'Origin', you: currentOrigin || '—', them: theirOrigin || '—' });
+    }
     pushIfSame('Religion', currentReligion, theirReligion);
     pushIfSame('Love language', currentUser.loveLanguage, whyProfile.loveLanguage);
     pushIfSame('Looking for', currentLookingFor, theirLookingFor);
