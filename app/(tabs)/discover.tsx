@@ -271,7 +271,12 @@ export default function DiscoverScreen() {
               {topCard.matchPercent || topCard.compatibility || 95}% Match
             </Text>
           </View>
-          <TouchableOpacity style={styles.matchWhy} onPress={() => showMatchWhy(topCard)}>
+          <TouchableOpacity
+            style={styles.matchWhy}
+            onPress={() => showMatchWhy(topCard)}
+            activeOpacity={0.8}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
             <Text style={styles.matchWhyText}>See why</Text>
             <Ionicons name="chevron-forward" size={12} color="#FFFFFF" />
           </TouchableOpacity>
@@ -286,24 +291,33 @@ export default function DiscoverScreen() {
                 <Text style={styles.tribe} numberOfLines={1}>
                   {topCard.tribe || 'Swahili'}
                 </Text>
-                <TouchableOpacity
-                  style={styles.messagePill}
-                  onPress={() => {
-                    const targetId = topCard.email || topCard.id;
-                    if (!targetId) return;
-                    router.push({
-                      pathname: '/(tabs)/chat/[id]',
-                      params: {
-                        id: targetId,
-                        name: topCard.name,
-                        avatar: topCard.photos?.[0] || '',
-                      },
-                    });
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.messageText}>{messageLabel}</Text>
-                </TouchableOpacity>
+                <View style={styles.cardActions}>
+                  <TouchableOpacity
+                    style={styles.messagePill}
+                    onPress={() => {
+                      const targetId = topCard.email || topCard.id;
+                      if (!targetId) return;
+                      router.push({
+                        pathname: '/(tabs)/chat/[id]',
+                        params: {
+                          id: targetId,
+                          name: topCard.name,
+                          avatar: topCard.photos?.[0] || '',
+                        },
+                      });
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.messageText}>{messageLabel}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.profilePill}
+                    onPress={() => openProfile(topCard)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.profileText}>Profile</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
               <View style={styles.locationRow}>
                 <Ionicons name="location-sharp" size={13} color="rgba(255,255,255,0.85)" />
@@ -710,6 +724,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     flexWrap: 'wrap',
   },
+  cardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   messagePill: {
     borderRadius: borderRadius.full,
     borderWidth: 1,
@@ -719,6 +738,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.35)',
   },
   messageText: {
+    ...typography.small,
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  profilePill: {
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.55)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  profileText: {
     ...typography.small,
     color: colors.white,
     fontSize: 12,

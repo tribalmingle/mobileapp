@@ -140,9 +140,9 @@ export default function HomeScreen() {
               <Text style={styles.progressLabel}>Profile completeness</Text>
             </View>
             <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: `${user?.profileCompletion || 78}%` }]} />
+              <View style={[styles.progressFill, { width: `${user?.profileCompletion ?? 0}%` }]} />
             </View>
-            <Text style={styles.progressValue}>{user?.profileCompletion || 78}%</Text>
+            <Text style={styles.progressValue}>{user?.profileCompletion ?? 0}%</Text>
           </View>
         </LinearGradient>
       </View>
