@@ -148,7 +148,7 @@ export default function MatchesScreen() {
         profile: JSON.stringify({
           ...item,
           photos: item.photo ? [item.photo] : [],
-          compatibility: 90,
+          compatibility: item.matchPercent ?? 90,
         }),
       },
     });

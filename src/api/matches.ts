@@ -16,6 +16,7 @@ export interface MatchUser {
   interests?: string[];
   photo?: string;
   status?: string;
+  matchPercent?: number;
 }
 
 export interface MatchesResponse {
@@ -96,6 +97,7 @@ export const fetchMatches = async (): Promise<MatchUser[]> => {
         interests: m.interests,
         photo: m.profilePhoto || m.photo,
         status: m.status,
+        matchPercent: m.matchPercent,
       }));
     }
   } catch (error) {
