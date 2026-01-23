@@ -199,48 +199,10 @@ export default function ProfileDetailScreen() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <LinearGradient
-        colors={gradients.hero.colors}
-        start={gradients.hero.start}
-        end={gradients.hero.end}
-        style={styles.screen}
-      >
-        <SafeAreaView style={[styles.safeArea, styles.centered]}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading profile...</Text>
-        </SafeAreaView>
-      </LinearGradient>
-    );
-  }
-
-  if (error || !profile) {
-    return (
-      <LinearGradient
-        colors={gradients.hero.colors}
-        start={gradients.hero.start}
-        end={gradients.hero.end}
-        style={styles.screen}
-      >
-        <SafeAreaView style={[styles.safeArea, styles.centered]}>
-          <Ionicons name="alert-circle" size={48} color={colors.error} />
-          <Text style={styles.errorTitle}>Profile Not Available</Text>
-          <Text style={styles.errorText}>{error || 'This profile could not be loaded.'}</Text>
-          <GoldButton
-            title="Go Back"
-            onPress={() => router.back()}
-            style={styles.errorButton}
-          />
-        </SafeAreaView>
-      </LinearGradient>
-    );
-  }
-
-  const compatibility = profile.matchPercent ?? profile.compatibility ?? 90;
-  const matchWhy = profile.matchReasons?.length
+  const compatibility = profile?.matchPercent ?? profile?.compatibility ?? 90;
+  const matchWhy = profile?.matchReasons?.length
     ? profile.matchReasons
-    : profile.matchBreakdown?.map((item) => item.label) || [];
+    : profile?.matchBreakdown?.map((item) => item.label) || [];
   const sharedRows = useMemo(() => {
     if (!profile || !currentUser) return [] as Array<{ label: string; you: string; them: string }>;
     const normalize = (value?: string | null) => (value || '').trim().toLowerCase();
@@ -285,6 +247,44 @@ export default function ProfileDetailScreen() {
 
     return matches;
   }, [profile, currentUser]);
+
+  if (isLoading) {
+    return (
+      <LinearGradient
+        colors={gradients.hero.colors}
+        start={gradients.hero.start}
+        end={gradients.hero.end}
+        style={styles.screen}
+      >
+        <SafeAreaView style={[styles.safeArea, styles.centered]}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading profile...</Text>
+        </SafeAreaView>
+      </LinearGradient>
+    );
+  }
+
+  if (error || !profile) {
+    return (
+      <LinearGradient
+        colors={gradients.hero.colors}
+        start={gradients.hero.start}
+        end={gradients.hero.end}
+        style={styles.screen}
+      >
+        <SafeAreaView style={[styles.safeArea, styles.centered]}>
+          <Ionicons name="alert-circle" size={48} color={colors.error} />
+          <Text style={styles.errorTitle}>Profile Not Available</Text>
+          <Text style={styles.errorText}>{error || 'This profile could not be loaded.'}</Text>
+          <GoldButton
+            title="Go Back"
+            onPress={() => router.back()}
+            style={styles.errorButton}
+          />
+        </SafeAreaView>
+      </LinearGradient>
+    );
+  }
 
   return (
     <LinearGradient

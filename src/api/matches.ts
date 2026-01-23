@@ -17,6 +17,7 @@ export interface MatchUser {
   photo?: string;
   status?: string;
   matchPercent?: number;
+  alreadyLiked?: boolean;
 }
 
 export interface MatchesResponse {
@@ -128,7 +129,8 @@ export const fetchIncomingLikes = async (): Promise<MatchUser[]> => {
         bio: l.bio,
         interests: l.interests,
         photo: l.profilePhoto || l.photo,
-        status: 'Sent a like',
+        alreadyLiked: Boolean(l.alreadyLiked),
+        status: l.alreadyLiked ? 'Already liked' : 'Sent a like',
       }));
     }
   } catch (error) {
@@ -202,9 +204,13 @@ export const fetchViews = async (): Promise<MatchUser[]> => {
 export const acceptLike = async (userId: string) => {
   if (isDemoMode()) return { matchCreated: true };
   try {
-    const { data } = await apiClient.post('/likes/accept', { userId });
+    const { data } = await apiClient.post('/likes/like', { userId });
     return data || {};
-  } catch (error) {
+  } catch (error: any) {
+    const message = error?.response?.data?.message || error?.response?.data?.error || '';
+    if (typeof message === 'string' && message.toLowerCase().includes('already liked')) {
+      return { success: true, alreadyLiked: true };
+    }
     console.warn('acceptLike failed', error);
     throw error;
   }
@@ -213,7 +219,7 @@ export const acceptLike = async (userId: string) => {
 export const declineLike = async (userId: string) => {
   if (isDemoMode()) return { success: true };
   try {
-    const { data } = await apiClient.post('/likes/decline', { userId });
+    const { data } = await apiClient.post('/likes/pass', { userId });
     return data || {};
   } catch (error) {
     console.warn('declineLike failed', error);

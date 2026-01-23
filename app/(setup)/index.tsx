@@ -257,11 +257,9 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
   });
 
   const updateProfileData = (data: Partial<ProfileData>) => {
-    setProfileData((prev) => {
-      const next = { ...prev, ...data };
-      profileDataRef.current = next;
-      return next;
-    });
+    const next = { ...profileDataRef.current, ...data };
+    profileDataRef.current = next;
+    setProfileData(next);
     setError(null);
   };
 

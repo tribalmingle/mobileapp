@@ -41,8 +41,8 @@ const tabPalette: Record<InboxTab, { bg: string; border: string; active: string;
   },
 };
 
-const MatchCard = ({ item, onOpen }: { item: MatchUser; onOpen: () => void }) => (
-  <TouchableOpacity activeOpacity={0.9} onPress={onOpen}>
+const MatchCard = ({ item, onViewProfile, onChat }: { item: MatchUser; onViewProfile: () => void; onChat: () => void }) => (
+  <TouchableOpacity activeOpacity={0.9} onPress={onViewProfile}>
     <GlassCard style={styles.card} intensity={30} padding={spacing.md}>
       <View style={styles.row}>
         <Image source={{ uri: item.photo }} style={styles.avatar} />
@@ -59,13 +59,13 @@ const MatchCard = ({ item, onOpen }: { item: MatchUser; onOpen: () => void }) =>
         </View>
       </View>
       <View style={styles.actions}>
-        <TouchableOpacity style={[styles.actionButton, styles.secondary]} onPress={onOpen}>
-          <Ionicons name="chatbubbles" size={18} color={colors.text.primary} />
-          <Text style={styles.actionText}>Chat</Text>
+        <TouchableOpacity style={[styles.actionButton, styles.secondary]} onPress={onViewProfile}>
+          <Ionicons name="person" size={18} color={colors.text.primary} />
+          <Text style={styles.actionText}>View profile</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.actionButton, styles.primary]} onPress={onOpen}>
-          <Ionicons name="videocam" size={18} color={colors.primaryDark} />
-          <Text style={[styles.actionText, styles.primaryText]}>Video intro</Text>
+        <TouchableOpacity style={[styles.actionButton, styles.primary]} onPress={onChat}>
+          <Ionicons name="chatbubbles" size={18} color={colors.primaryDark} />
+          <Text style={[styles.actionText, styles.primaryText]}>Chat</Text>
         </TouchableOpacity>
       </View>
     </GlassCard>
@@ -141,10 +141,11 @@ export default function MatchesScreen() {
   }, []);
 
   const openProfile = (item: MatchUser) => {
+    const targetId = item.email || item.id;
     router.push({
       pathname: '/profile/[id]',
       params: {
-        id: item.id,
+        id: targetId,
         profile: JSON.stringify({
           ...item,
           photos: item.photo ? [item.photo] : [],
@@ -175,8 +176,18 @@ export default function MatchesScreen() {
     setError(null);
     try {
       await acceptLike(userId);
+      const accepted = incomingLikes.find((p) => p.id === userId);
       setIncomingLikes((prev) => prev.filter((p) => p.id !== userId));
-      await loadData();
+      if (accepted) {
+        setMatches((prev) => {
+          const exists = prev.some((m) => m.id === accepted.id);
+          if (exists) return prev;
+          return [{ ...accepted, status: 'Match' }, ...prev];
+        });
+        setTab('matches');
+      } else {
+        await loadData();
+      }
     } catch (err: any) {
       setError(err?.message || 'Could not accept like');
     } finally {
@@ -206,7 +217,7 @@ export default function MatchesScreen() {
             <Text style={styles.name}>{item.name}{item.age ? `, ${item.age}` : ''}</Text>
             <View style={styles.statusPill}>
               <Ionicons name="heart" size={14} color={colors.primaryDark} />
-              <Text style={styles.statusText}>New like</Text>
+              <Text style={styles.statusText}>{item.alreadyLiked ? 'Already liked' : 'New like'}</Text>
             </View>
           </View>
           <Text style={styles.subline}>{item.city || 'City'} • {item.tribe || 'Tribe'}</Text>
@@ -214,22 +225,37 @@ export default function MatchesScreen() {
         </View>
       </View>
       <View style={styles.actions}>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.secondary]}
-          onPress={() => handleDecline(item.id)}
-          disabled={actioningId === item.id}
-        >
-          <Ionicons name="close" size={18} color={colors.text.primary} />
-          <Text style={styles.actionText}>Pass</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.primary]}
-          onPress={() => handleAccept(item.id)}
-          disabled={actioningId === item.id}
-        >
-          <Ionicons name="checkmark" size={18} color={colors.primaryDark} />
-          <Text style={[styles.actionText, styles.primaryText]}>Accept</Text>
-        </TouchableOpacity>
+        {item.alreadyLiked ? (
+          <>
+            <TouchableOpacity style={[styles.actionButton, styles.secondary]} onPress={() => openProfile(item)}>
+              <Ionicons name="person" size={18} color={colors.text.primary} />
+              <Text style={styles.actionText}>View profile</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.actionButton, styles.primary]} onPress={() => openDirectChat(item)}>
+              <Ionicons name="chatbubbles" size={18} color={colors.primaryDark} />
+              <Text style={[styles.actionText, styles.primaryText]}>Chat</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.secondary]}
+              onPress={() => handleDecline(item.id)}
+              disabled={actioningId === item.id}
+            >
+              <Ionicons name="close" size={18} color={colors.text.primary} />
+              <Text style={styles.actionText}>Pass</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.primary]}
+              onPress={() => handleAccept(item.id)}
+              disabled={actioningId === item.id}
+            >
+              <Ionicons name="checkmark" size={18} color={colors.primaryDark} />
+              <Text style={[styles.actionText, styles.primaryText]}>Accept</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     </GlassCard>
   );
@@ -308,7 +334,13 @@ export default function MatchesScreen() {
   const renderForTab = (item: MatchUser) => {
     if (tab === 'incoming') return renderIncoming({ item });
     if (tab === 'sent') return renderSent({ item });
-    if (tab === 'matches') return <MatchCard item={item} onOpen={() => openProfile(item)} />;
+    if (tab === 'matches') return (
+      <MatchCard
+        item={item}
+        onViewProfile={() => openProfile(item)}
+        onChat={() => openDirectChat(item)}
+      />
+    );
     return renderGeneric({ item });
   };
 
