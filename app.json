@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "TM App",
+    "name": "Tribalmingle",
     "slug": "tmapp",
     "scheme": "tmapp",
     "version": "1.0.1",
@@ -15,8 +15,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.tm.app",
-      "buildNumber": "2"
+      "bundleIdentifier": "com.tribalmingle.app",
+      "buildNumber": "2",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -24,7 +27,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.tm.app",
+      "package": "com.tribalmingle.app",
       "versionCode": 2
     },
     "web": {
@@ -50,9 +53,7 @@
         "projectId": "309dc50f-fb46-49f7-bd62-6a1a86d72910"
       }
     },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.1",
     "updates": {
       "url": "https://u.expo.dev/309dc50f-fb46-49f7-bd62-6a1a86d72910"
     }
