@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import UniversalBackground from '@/components/universal/UniversalBackground';
 import { colors, spacing, typography, borderRadius } from '@/theme';
 import {
@@ -33,6 +33,10 @@ import {
 } from '@/api/messaging';
 import { useAuthStore } from '@/store/authStore';
 import { useNotificationStore } from '@/store/notificationStore';
+
+const isExpoGo =
+  Constants.appOwnership === 'expo' ||
+  (Constants as any).executionEnvironment === 'storeClient';
 
 const normalizeId = (value?: string | null) => (value ? String(value).toLowerCase() : '');
 
@@ -133,21 +137,29 @@ export default function ThreadScreen() {
           if (!id) return;
           fetchTypingStatus(String(id)).then((list) => setTypingUsers(list || [])).catch(() => {});
         }, 2000);
-    const sub = Notifications.addNotificationReceivedListener((notification) => {
-      const data = notification?.request?.content?.data as any;
-      if (data?.type === 'message' && (!data.threadId || String(data.threadId) === String(id))) {
-        loadThread();
-        addNotification({
-          title: notification?.request?.content?.title ?? 'New message',
-          body: notification?.request?.content?.body ?? undefined,
-          data,
-        });
-      }
-    });
+    let sub: { remove: () => void } | null = null;
+
+    const registerNotificationListener = async () => {
+      if (isExpoGo) return;
+      const Notifications = await import('expo-notifications');
+      sub = Notifications.addNotificationReceivedListener((notification) => {
+        const data = notification?.request?.content?.data as any;
+        if (data?.type === 'message' && (!data.threadId || String(data.threadId) === String(id))) {
+          loadThread();
+          addNotification({
+            title: notification?.request?.content?.title ?? 'New message',
+            body: notification?.request?.content?.body ?? undefined,
+            data,
+          });
+        }
+      });
+    };
+
+    registerNotificationListener();
     return () => {
       if (interval) clearInterval(interval);
       if (typingInterval) clearInterval(typingInterval);
-      sub.remove();
+      sub?.remove();
     };
   }, [fetchTypingStatus, id, loadThread, useDirect]);
 
@@ -201,6 +213,25 @@ export default function ThreadScreen() {
 
   const participantAvatar = useMemo(() => (avatar as string) || thread?.participants?.[0]?.photo || '', [avatar, thread]);
   const participantInitial = useMemo(() => displayName?.[0]?.toUpperCase?.() || '?', [displayName]);
+  const participantVerification = useMemo(() => {
+    const participant = thread?.participants?.[0] as any;
+    const hasId = Boolean(
+      participant?.idVerificationUrl ||
+        participant?.verificationIdUrl ||
+        participant?.idVerification?.url
+    );
+    const hasSelfie = Boolean(
+      participant?.selfiePhoto ||
+        participant?.verificationSelfie
+    );
+    const isVerified = Boolean(
+      participant?.isVerified ||
+        participant?.verified ||
+        participant?.verificationStatus === 'verified' ||
+        (hasId && hasSelfie)
+    );
+    return { isVerified };
+  }, [thread]);
 
   const onBlock = async () => {
     if (!targetUserId) return;
@@ -315,6 +346,21 @@ export default function ThreadScreen() {
               )}
               <View style={styles.headerMeta}>
                 <Text style={styles.headerName}>{displayName}</Text>
+                <View style={styles.verifyRow}>
+                  <Ionicons
+                    name={participantVerification.isVerified ? 'shield-checkmark' : 'alert-circle'}
+                    size={12}
+                    color={participantVerification.isVerified ? colors.success : colors.warning}
+                  />
+                  <Text
+                    style={[
+                      styles.verifyText,
+                      participantVerification.isVerified ? styles.verifyTextVerified : styles.verifyTextUnverified,
+                    ]}
+                  >
+                    {participantVerification.isVerified ? 'Verified user' : 'Unverified user'}
+                  </Text>
+                </View>
                 {thread?.participants?.[0]?.name ? <Text style={styles.headerSub}>Chat partner</Text> : null}
               </View>
             </View>
@@ -582,6 +628,21 @@ const styles = StyleSheet.create({
   headerMeta: {
     flex: 1,
     gap: spacing.xs,
+  },
+  verifyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  verifyText: {
+    ...typography.caption,
+    fontWeight: '700',
+  },
+  verifyTextVerified: {
+    color: colors.success,
+  },
+  verifyTextUnverified: {
+    color: colors.warning,
   },
   headerName: {
     ...typography.h3,

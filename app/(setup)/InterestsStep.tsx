@@ -5,8 +5,8 @@ import Svg, { Path } from 'react-native-svg';
 
 interface Props {
   interests: string[];
-  loveLanguage: string;
-  onUpdate: (interests: string[], loveLanguage: string) => void;
+  loveLanguage: string[];
+  onUpdate: (interests: string[], loveLanguage: string[]) => void;
   onNext: () => void;
   onBack: () => void;
   onSkip: () => void;
@@ -29,7 +29,7 @@ const LOVE_LANGUAGE_OPTIONS = [
 
 const InterestsStep: React.FC<Props> = ({ interests, loveLanguage, onUpdate, onNext, onBack, onSkip, currentStep, totalSteps }) => {
   const [selected, setSelected] = useState<string[]>(interests);
-  const [selectedLoveLanguage, setSelectedLoveLanguage] = useState<string>(loveLanguage);
+  const [selectedLoveLanguage, setSelectedLoveLanguage] = useState<string[]>(loveLanguage);
 
   const toggle = (interest: string) => {
     if (selected.includes(interest)) {
@@ -42,6 +42,17 @@ const InterestsStep: React.FC<Props> = ({ interests, loveLanguage, onUpdate, onN
   const handleContinue = () => {
     onUpdate(selected, selectedLoveLanguage);
     onNext();
+  };
+
+  const toggleLoveLanguage = (language: string) => {
+    if (selectedLoveLanguage.includes(language)) {
+      setSelectedLoveLanguage(selectedLoveLanguage.filter((item) => item !== language));
+      return;
+    }
+    if (selectedLoveLanguage.length >= 2) {
+      return;
+    }
+    setSelectedLoveLanguage([...selectedLoveLanguage, language]);
   };
 
   return (
@@ -82,20 +93,21 @@ const InterestsStep: React.FC<Props> = ({ interests, loveLanguage, onUpdate, onN
         </View>
 
         <Text style={[styles.subtitle, styles.sectionSpacing]}>Love language</Text>
-        <Text style={styles.description}>How do you prefer to receive love?</Text>
+        <Text style={styles.description}>Select up to 2 ways you prefer to receive love.</Text>
         <View style={styles.optionsContainer}>
           {LOVE_LANGUAGE_OPTIONS.map((language) => (
             <TouchableOpacity
               key={language}
-              style={[styles.option, selectedLoveLanguage === language && styles.optionSelected]}
-              onPress={() => setSelectedLoveLanguage(language)}
+              style={[styles.option, selectedLoveLanguage.includes(language) && styles.optionSelected]}
+              onPress={() => toggleLoveLanguage(language)}
             >
-              <Text style={[styles.optionText, selectedLoveLanguage === language && styles.optionTextSelected]}>
+              <Text style={[styles.optionText, selectedLoveLanguage.includes(language) && styles.optionTextSelected]}>
                 {language}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
+        <Text style={styles.helperText}>{selectedLoveLanguage.length}/2 selected</Text>
       </ScrollView>
 
       <View style={styles.actions}>
@@ -123,6 +135,7 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingBottom: 120 },
   subtitle: { fontSize: 18, color: '#FFFFFF', fontWeight: '600', marginBottom: 8 },
   description: { fontSize: 14, color: 'rgba(255, 255, 255, 0.7)', marginBottom: 16 },
+  helperText: { fontSize: 13, color: 'rgba(255, 255, 255, 0.7)', marginTop: 8 },
   sectionSpacing: { marginTop: 24 },
   optionsContainer: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 },
   option: { paddingHorizontal: 20, paddingVertical: 12, backgroundColor: 'rgba(255, 255, 255, 0.15)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)', marginHorizontal: 6, marginBottom: 10 },

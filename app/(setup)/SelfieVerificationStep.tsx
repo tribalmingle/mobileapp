@@ -85,7 +85,7 @@ const SelfieVerificationStep: React.FC<Props> = ({ selfieUrl, onUpdate, onNext, 
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        <Text style={styles.subtitle}>Take a quick selfie so other members know it is you.</Text>
+        <Text style={styles.subtitle}>If you uploaded an ID, add a quick selfie to complete verification. This step is optional.</Text>
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Capture or Upload</Text>

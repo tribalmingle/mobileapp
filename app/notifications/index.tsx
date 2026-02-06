@@ -76,7 +76,7 @@ export default function NotificationsScreen() {
       ) : (
         <FlatList
           data={items}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item, index) => item.id || item.createdAt || `${index}`}
           ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
           renderItem={({ item }) => (
             <TouchableOpacity activeOpacity={0.9} onPress={() => handlePress(item.id, item.read)}>

@@ -9,14 +9,32 @@ import GlassCard from '@/components/GlassCard';
 import { useAuthStore } from '@/store/authStore';
 import { colors, spacing, typography, borderRadius } from '@/theme';
 
-const badges = [
-  { icon: 'shield-checkmark', label: 'ID verified' },
-  { icon: 'sparkles', label: 'Profile boosted' },
-  { icon: 'chatbubbles', label: 'Responsive' },
-];
-
 export default function ProfileScreen() {
   const user = useAuthStore((state) => state.user);
+
+  const hasIdVerification = Boolean(
+    (user as any)?.idVerificationUrl ||
+      (user as any)?.verificationIdUrl ||
+      (user as any)?.idVerification?.url
+  );
+  const hasSelfieVerification = Boolean(
+    (user as any)?.selfiePhoto ||
+      (user as any)?.verificationSelfie
+  );
+  const isVerified = Boolean(
+    (user as any)?.isVerified ||
+      (user as any)?.verified ||
+      (hasIdVerification && hasSelfieVerification)
+  );
+  const badges = [
+    {
+      icon: isVerified ? 'shield-checkmark' : 'alert-circle',
+      label: isVerified ? 'Verified user' : 'Unverified user',
+      tone: isVerified ? 'verified' : 'unverified',
+    },
+    { icon: 'sparkles', label: 'Profile boosted' },
+    { icon: 'chatbubbles', label: 'Responsive' },
+  ];
 
   const profilePhoto =
     user?.photos?.[0] ||
@@ -75,14 +93,59 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
         <View style={styles.badgesRow}>
-          {badges.map((badge) => (
-            <View key={badge.label} style={styles.badge}>
-              <Ionicons name={badge.icon as any} size={14} color={colors.primaryDark} />
-              <Text style={styles.badgeText}>{badge.label}</Text>
-            </View>
-          ))}
+          {badges.map((badge) => {
+            const isVerificationBadge = badge.tone === 'verified' || badge.tone === 'unverified';
+            return (
+              <View
+                key={badge.label}
+                style={[
+                  styles.badge,
+                  badge.tone === 'verified' && styles.badgeVerified,
+                  badge.tone === 'unverified' && styles.badgeUnverified,
+                ]}
+              >
+                <Ionicons
+                  name={badge.icon as any}
+                  size={14}
+                  color={
+                    badge.tone === 'verified'
+                      ? colors.success
+                      : badge.tone === 'unverified'
+                        ? colors.warning
+                        : colors.primaryDark
+                  }
+                />
+                <Text
+                  style={[
+                    styles.badgeText,
+                    isVerificationBadge && styles.badgeTextStrong,
+                    badge.tone === 'verified' && styles.badgeTextVerified,
+                    badge.tone === 'unverified' && styles.badgeTextUnverified,
+                  ]}
+                >
+                  {badge.label}
+                </Text>
+              </View>
+            );
+          })}
         </View>
       </View>
+
+      {!isVerified && (
+        <PurpleCard>
+          <View style={styles.verifyCardHeader}>
+            <Ionicons name="alert-circle" size={18} color={colors.secondary} />
+            <Text style={styles.verifyCardTitle}>Get verified</Text>
+          </View>
+          <Text style={styles.bodyCopy}>
+            Verify your ID and selfie to earn the green shield. It is optional, but it builds trust with matches.
+          </Text>
+          <View style={styles.actionRow}>
+            <GoldButton title="Verify now" onPress={() => router.push('/setup')} style={{ flex: 1 }} />
+            <GoldButton title="Safety info" onPress={() => router.push('/safety')} variant="secondary" style={{ flex: 1 }} />
+          </View>
+        </PurpleCard>
+      )}
 
       {photoList.length > 0 && (
         <GlassCard style={styles.photoCard} intensity={24} padding={spacing.lg}>
@@ -218,10 +281,39 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.full,
   },
+  badgeVerified: {
+    backgroundColor: 'rgba(52, 211, 153, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(52, 211, 153, 0.45)',
+  },
+  badgeUnverified: {
+    backgroundColor: 'rgba(251, 191, 36, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(251, 191, 36, 0.45)',
+  },
   badgeText: {
     ...typography.small,
     color: colors.primaryDark,
     fontWeight: '700',
+  },
+  badgeTextStrong: {
+    fontWeight: '800',
+  },
+  badgeTextVerified: {
+    color: colors.success,
+  },
+  badgeTextUnverified: {
+    color: colors.warning,
+  },
+  verifyCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  verifyCardTitle: {
+    ...typography.h3,
+    color: colors.text.primary,
   },
   infoCard: {
     gap: spacing.md,

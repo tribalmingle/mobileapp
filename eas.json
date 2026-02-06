@@ -61,13 +61,8 @@
   },
   "submit": {
     "production": {
-      "ios": {
-        "appleId": "your-apple-id@example.com",
-        "ascAppId": "1234567890",
-        "appleTeamId": "YOUR_TEAM_ID"
-      },
       "android": {
-        "serviceAccountKeyPath": "./google-play-service-account.json",
+        "serviceAccountKeyPath": "C:\\Users\\CCMendel\\tmapp\\tribalmingle-58c9c4b94af8.json",
         "track": "internal"
       }
     }

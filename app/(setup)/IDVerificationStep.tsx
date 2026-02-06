@@ -87,7 +87,7 @@ const IDVerificationStep: React.FC<Props> = ({ idVerification, onUpdate, onNext,
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        <Text style={styles.subtitle}>Upload a government-issued ID to keep the community safe.</Text>
+        <Text style={styles.subtitle}>Upload a government-issued ID to earn a verified badge. This step is optional.</Text>
 
         <Text style={styles.sectionLabel}>Select ID Type</Text>
         <View style={styles.pillRow}>

@@ -17,7 +17,7 @@ export interface ProfileUpdatePayload {
   work: { occupation: string; workType: string };
   faith: string;
   interests: string[];
-  loveLanguage?: string;
+  loveLanguage?: string[];
   bio: string;
   lookingFor: string;
   ageRangeMin?: number;
@@ -60,9 +60,13 @@ const toBackendPayload = (payload: ProfileDraftPayload | ProfileUpdatePayload) =
   if (payload.personalDetails?.education) body.education = payload.personalDetails.education;
 
   if (payload.work?.occupation) body.occupation = payload.work.occupation;
+  if (payload.work?.workType) body.workType = payload.work.workType;
   if (payload.faith) body.religion = payload.faith;
   if (payload.interests) body.interests = payload.interests;
-  if (payload.loveLanguage) body.loveLanguage = payload.loveLanguage;
+  if (payload.loveLanguage && payload.loveLanguage.length > 0) {
+    body.loveLanguage = payload.loveLanguage[0];
+    body.loveLanguages = payload.loveLanguage;
+  }
   if (payload.lookingFor) body.lookingFor = payload.lookingFor;
 
   if (payload.photos) {

@@ -71,7 +71,8 @@ export default function UniversalBottomNav({ totalUnreadCount = 0 }: { totalUnre
       style={[
         styles.container,
         {
-          paddingBottom: Platform.OS === 'ios' ? Math.max(insets.bottom, 8) : spacing.sm,
+          // Handle safe area for both iOS and Android gesture navigation
+          paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? 12 : 8),
         },
       ]}
     >

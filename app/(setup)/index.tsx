@@ -45,7 +45,7 @@ interface ProfileData {
   work: { occupation: string; workType: string };
   faith: string;
   interests: string[];
-  loveLanguage: string;
+  loveLanguage: string[];
   bio: string;
   lookingFor: string;
 }
@@ -77,7 +77,7 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
     work: { occupation: '', workType: '' },
     faith: '',
     interests: [],
-    loveLanguage: '',
+    loveLanguage: [],
     bio: '',
     lookingFor: '',
   };
@@ -128,11 +128,19 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
     },
     work: {
       occupation: profileUser.occupation || '',
-      workType: '',
+      workType:
+        (profileUser as any).workType ||
+        (profileUser as any).employmentType ||
+        (profileUser as any).jobType ||
+        '',
     },
     faith: (profileUser as any).faith || (profileUser as any).religion || '',
     interests: profileUser.interests || [],
-    loveLanguage: (profileUser as any).loveLanguage || '',
+    loveLanguage: Array.isArray((profileUser as any).loveLanguages)
+      ? (profileUser as any).loveLanguages
+      : (profileUser as any).loveLanguage
+        ? [(profileUser as any).loveLanguage]
+        : [],
     bio: profileUser.bio || '',
     lookingFor: Array.isArray(profileUser.relationshipGoals) && profileUser.relationshipGoals.length
       ? profileUser.relationshipGoals[0]
@@ -165,6 +173,7 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
     return () => clearTimeout(timeoutId);
   }, [error]);
 
+
   const isNonEmpty = (value: unknown) => {
     if (Array.isArray(value)) return value.length > 0;
     if (value === null || value === undefined) return false;
@@ -172,6 +181,15 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
     if (typeof value === 'object') return Object.keys(value as Record<string, unknown>).length > 0;
     return true;
   };
+
+  const hasIdVerification = (data: ProfileData) => Boolean(data.idVerification?.url);
+  const hasSelfieVerification = (data: ProfileData) => Boolean(data.selfiePhoto);
+
+  useEffect(() => {
+    if (currentStep === 11 && !hasIdVerification(profileDataRef.current)) {
+      setCurrentStep(12);
+    }
+  }, [currentStep]);
 
   const pruneObject = <T extends Record<string, any>>(obj: T): Partial<T> =>
     Object.fromEntries(Object.entries(obj).filter(([, v]) => isNonEmpty(v))) as Partial<T>;
@@ -352,7 +370,11 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
       case 3: // Faith
         return { faith: payload.faith };
       case 6: // Interests
-        return { interests: payload.interests, loveLanguage: payload.loveLanguage };
+        return {
+          interests: payload.interests,
+          loveLanguage: payload.loveLanguage,
+          loveLanguages: payload.loveLanguage,
+        };
       case 5: // Bio
         return { bio: payload.bio };
       case 7: // Looking For
@@ -382,6 +404,16 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
     }
     setError(null);
 
+    const data = profileDataRef.current;
+    if (currentStep === 10 && !hasIdVerification(data)) {
+      setCurrentStep(12);
+      return;
+    }
+    if (currentStep === 11 && !hasSelfieVerification(data)) {
+      setCurrentStep(12);
+      return;
+    }
+
     if (currentStep === totalSteps - 1) {
       await handleComplete();
       return;
@@ -399,6 +431,10 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
   };
 
   const handleBack = () => {
+    if (currentStep === 12 && !hasIdVerification(profileDataRef.current)) {
+      setCurrentStep(10);
+      return;
+    }
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
     }
@@ -417,6 +453,16 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
     }
 
     setError(null);
+
+    const data = profileDataRef.current;
+    if (currentStep === 10 && !hasIdVerification(data)) {
+      setCurrentStep(12);
+      return;
+    }
+    if (currentStep === 11 && !hasSelfieVerification(data)) {
+      setCurrentStep(12);
+      return;
+    }
 
     try {
       await persistStep(currentStep);
@@ -499,15 +545,17 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
         return data.faith ? null : 'Please select your faith.';
       case 7:
         if (data.interests.length < 3) return 'Please select at least 3 interests.';
-        return data.loveLanguage ? null : 'Please select your love language.';
+        if (!data.loveLanguage.length) return 'Please select at least one love language.';
+        if (data.loveLanguage.length > 2) return 'Please select up to 2 love languages.';
+        return null;
       case 8:
         return data.bio ? null : 'Please add a short bio.';
       case 9:
         return data.lookingFor ? null : 'Please tell us what you are looking for.';
       case 10:
-        return data.idVerification.url ? null : 'Please upload an ID document.';
+        return null;
       case 11:
-        return data.selfiePhoto ? null : 'Please upload a selfie for verification.';
+        return null;
       default:
         return null;
     }
@@ -832,9 +880,11 @@ const ReviewStep: React.FC<ReviewStepProps> = ({ onNext, onBack, onSkip, current
     { label: 'Heritage', value: `${profile.heritage.country || '-'} / ${profile.heritage.tribe || '-'}` },
     { label: 'Personal', value: `${profile.personalDetails.height || '-'}, ${profile.personalDetails.bodyType || '-'}` },
     { label: 'Work', value: profile.work.occupation || '-' },
+    { label: 'Work type', value: profile.work.workType || '-' },
     { label: 'Faith', value: profile.faith || '-' },
     { label: 'Interests', value: profile.interests.length ? profile.interests.join(', ') : '-' },
     { label: 'Bio', value: profile.bio || '-' },
+    { label: 'Love language', value: profile.loveLanguage.length ? profile.loveLanguage.join(', ') : '-' },
     { label: 'Looking for', value: profile.lookingFor || '-' },
     { label: 'ID Upload', value: profile.idVerification.url ? 'Provided' : 'Missing' },
     { label: 'Selfie', value: profile.selfiePhoto ? 'Provided' : 'Missing' },

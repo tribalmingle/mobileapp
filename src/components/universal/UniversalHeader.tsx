@@ -135,10 +135,10 @@ export default function UniversalHeader({
 
                     <TouchableOpacity
                       style={styles.menuItem}
-                      onPress={() => handleMenuItemPress(() => router.push('/subscription'))}
+                      onPress={() => handleMenuItemPress(() => router.push('/premium'))}
                     >
                       <Feather name="star" size={20} color="#000000" />
-                      <Text style={styles.menuItemText}>Subscription</Text>
+                      <Text style={styles.menuItemText}>Premium</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -151,23 +151,7 @@ export default function UniversalHeader({
 
                     <TouchableOpacity
                       style={styles.menuItem}
-                      onPress={() => handleMenuItemPress(() => router.push('/concierge'))}
-                    >
-                      <Feather name="briefcase" size={20} color="#000000" />
-                      <Text style={styles.menuItemText}>Concierge Service</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.menuItem}
-                      onPress={() => handleMenuItemPress(() => router.push('/boosts'))}
-                    >
-                      <Feather name="zap" size={20} color="#000000" />
-                      <Text style={styles.menuItemText}>Boosts & Spotlight</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.menuItem}
-                      onPress={() => handleMenuItemPress(() => router.push('/community/tribes'))}
+                      onPress={() => handleMenuItemPress(() => router.push('/community'))}
                     >
                       <Feather name="users" size={20} color="#000000" />
                       <Text style={styles.menuItemText}>Community</Text>
@@ -191,7 +175,7 @@ export default function UniversalHeader({
 
                     <TouchableOpacity
                       style={styles.menuItem}
-                      onPress={() => handleMenuItemPress(() => router.push('/dating-tips'))}
+                      onPress={() => handleMenuItemPress(() => router.push('/tips'))}
                     >
                       <Feather name="book" size={20} color="#000000" />
                       <Text style={styles.menuItemText}>Dating Tips</Text>

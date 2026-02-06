@@ -2,12 +2,16 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, RefreshControl, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import UniversalBackground from '@/components/universal/UniversalBackground';
 import GlassCard from '@/components/GlassCard';
 import { colors, spacing, typography, borderRadius } from '@/theme';
 import { fetchThreads, Thread } from '@/api/messaging';
 import { useNotificationStore } from '@/store/notificationStore';
+
+const isExpoGo =
+  Constants.appOwnership === 'expo' ||
+  (Constants as any).executionEnvironment === 'storeClient';
 
 const ConversationRow = ({ thread, onPress }: { thread: Thread; onPress: () => void }) => {
   const participant = thread.participants?.[0];
@@ -74,19 +78,27 @@ export default function ChatScreen() {
   useEffect(() => {
     loadThreads();
     const interval = setInterval(loadThreads, 5000);
-    const sub = Notifications.addNotificationReceivedListener((notification) => {
-      const type = (notification?.request?.content?.data as any)?.type;
-      if (type === 'message') {
-        loadThreads();
-        setToast({ message: 'New message', tone: 'info' });
-        const title = notification?.request?.content?.title || 'New message';
-        const body = notification?.request?.content?.body || undefined;
-        addNotification({ title, body, data: notification?.request?.content?.data as any });
-      }
-    });
+    let sub: { remove: () => void } | null = null;
+
+    const registerNotificationListener = async () => {
+      if (isExpoGo) return;
+      const Notifications = await import('expo-notifications');
+      sub = Notifications.addNotificationReceivedListener((notification) => {
+        const type = (notification?.request?.content?.data as any)?.type;
+        if (type === 'message') {
+          loadThreads();
+          setToast({ message: 'New message', tone: 'info' });
+          const title = notification?.request?.content?.title || 'New message';
+          const body = notification?.request?.content?.body || undefined;
+          addNotification({ title, body, data: notification?.request?.content?.data as any });
+        }
+      });
+    };
+
+    registerNotificationListener();
     return () => {
       clearInterval(interval);
-      sub.remove();
+      sub?.remove();
     };
   }, [loadThreads]);
 

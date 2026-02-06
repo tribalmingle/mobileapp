@@ -1,1 +1,41 @@
 package-lock.json
+
+# Dependencies
+node_modules/
+
+# Expo/React Native caches
+.expo/
+.expo-shared/
+
+# Android build artifacts
+android/.gradle/
+android/build/
+android/app/build/
+android/.idea/
+
+# iOS build artifacts
+ios/build/
+ios/Pods/
+ios/Podfile.lock
+ios/.xcworkspace/
+ios/DerivedData/
+
+# Local tooling / editor
+.vscode/
+.idea/
+
+# Logs / temp
+*.log
+*.tmp
+metro-log.txt
+jest-output.txt
+
+# CI/build outputs
+builds/
+*.apk
+*.aab
+*.ipa
+tmapp-latest.apk
+
+# Git
+.git/

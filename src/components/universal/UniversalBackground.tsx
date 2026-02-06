@@ -2,11 +2,10 @@ import React from 'react';
 import { View, ScrollView, StyleSheet, ViewStyle, ScrollViewProps, TouchableOpacity, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useNavigation } from 'expo-router';
 import { colors, gradients, spacing, typography, borderRadius } from '@/theme';
 import UniversalHeader, { UniversalHeaderProps } from './UniversalHeader';
 import UniversalBottomNav from './UniversalBottomNav';
-import { useNotificationStore } from '@/store/notificationStore';
 
 interface UniversalBackgroundProps extends Partial<UniversalHeaderProps> {
   children: React.ReactNode;
@@ -15,7 +14,6 @@ interface UniversalBackgroundProps extends Partial<UniversalHeaderProps> {
   style?: ViewStyle;
   contentContainerStyle?: ScrollViewProps['contentContainerStyle'];
   showBottomNav?: boolean;
-  toast?: { message: string; tone?: 'info' | 'success' | 'error' } | null;
 }
 
 export default function UniversalBackground({
@@ -30,7 +28,7 @@ export default function UniversalBackground({
   showNotificationBadge,
   notificationCount,
   onBackPress,
-  onSearchPress = () => router.push('/search'),
+  onSearchPress,
   onNotificationPress,
   onProfilePress,
   onEditProfilePress,
@@ -38,20 +36,28 @@ export default function UniversalBackground({
   onGuaranteedDatingPress,
   rightAction,
   showBottomNav = false,
-  toast,
 }: UniversalBackgroundProps) {
   const Container = scrollable ? ScrollView : View;
-  const unreadCount = useNotificationStore((state) => state.unreadCount);
-  const resolvedShowBackButton = showBackButton ?? false;
+  const navigation = useNavigation<any>();
+  const canGoBack = typeof navigation?.canGoBack === 'function' ? navigation.canGoBack() : false;
+  const resolvedShowBackButton = showBackButton ?? canGoBack;
   const resolvedOnBackPress =
     onBackPress ||
     (() => {
-      if (typeof router?.canGoBack === 'function' && router.canGoBack()) {
-        router.back();
+      if (canGoBack && typeof navigation?.goBack === 'function') {
+        navigation.goBack();
         return;
       }
       router.replace('/(tabs)/home');
     });
+
+  // Default handlers for profile dropdown actions
+  const resolvedOnProfilePress = onProfilePress || (() => router.push('/(tabs)/profile'));
+  const resolvedOnEditProfilePress = onEditProfilePress || (() => router.push('/setup'));
+  const resolvedOnSettingsPress = onSettingsPress || (() => router.push('/settings'));
+  const resolvedOnGuaranteedDatingPress = onGuaranteedDatingPress || (() => router.push('/guaranteed-dating'));
+  const resolvedOnSearchPress = onSearchPress || (() => router.push('/search'));
+  const resolvedOnNotificationPress = onNotificationPress || (() => router.push('/notifications'));
 
   const showPageHeader = resolvedShowBackButton || Boolean(title);
 
@@ -62,14 +68,14 @@ export default function UniversalBackground({
         subtitle={undefined}
         showBackButton={false}
         showNotificationBadge={showNotificationBadge}
-        notificationCount={notificationCount ?? unreadCount}
+        notificationCount={notificationCount}
         onBackPress={resolvedOnBackPress}
-        onSearchPress={onSearchPress}
-        onNotificationPress={onNotificationPress || (() => router.push('/notifications'))}
-        onProfilePress={onProfilePress}
-        onEditProfilePress={onEditProfilePress}
-        onSettingsPress={onSettingsPress}
-        onGuaranteedDatingPress={onGuaranteedDatingPress}
+        onSearchPress={resolvedOnSearchPress}
+        onNotificationPress={resolvedOnNotificationPress}
+        onProfilePress={resolvedOnProfilePress}
+        onEditProfilePress={resolvedOnEditProfilePress}
+        onSettingsPress={resolvedOnSettingsPress}
+        onGuaranteedDatingPress={resolvedOnGuaranteedDatingPress}
         rightAction={rightAction}
       />
       <View style={styles.contentWithNav}>
@@ -92,17 +98,6 @@ export default function UniversalBackground({
           contentContainerStyle={scrollable ? [styles.scrollContent, contentContainerStyle] : undefined}
           showsVerticalScrollIndicator={false}
         >
-          {toast?.message ? (
-            <View
-              style={[
-                styles.toast,
-                toast.tone === 'success' && styles.toastSuccess,
-                toast.tone === 'error' && styles.toastError,
-              ]}
-            >
-              <Text style={styles.toastText}>{toast.message}</Text>
-            </View>
-          ) : null}
           {children}
         </Container>
         {showBottomNav && <UniversalBottomNav />}
@@ -151,25 +146,6 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md - 10,
     paddingBottom: 70,
     paddingHorizontal: -5,
-  },
-  toast: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.glass.dark,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: spacing.sm,
-  },
-  toastSuccess: {
-    borderColor: colors.success,
-  },
-  toastError: {
-    borderColor: colors.error,
-  },
-  toastText: {
-    ...typography.body,
-    color: colors.text.primary,
   },
   pageHeader: {
     flexDirection: 'row',

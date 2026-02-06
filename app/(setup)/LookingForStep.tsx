@@ -14,11 +14,11 @@ interface Props {
 }
 
 const OPTIONS = [
-  { value: 'relationship', label: 'Long-term relationship', emoji: '❤️' },
-  { value: 'dating', label: 'Dating & Friendship', emoji: '👥' },
-  { value: 'friends', label: 'Just friends', emoji: '🤝' },
-  { value: 'casual', label: 'Casual dating', emoji: '😊' },
-  { value: 'unsure', label: 'Not sure yet', emoji: '🤔' },
+  { value: 'Marriage', label: 'Marriage', emoji: '💍' },
+  { value: 'Longterm relationship', label: 'Longterm relationship', emoji: '❤️' },
+  { value: 'Friendship', label: 'Friendship', emoji: '🤝' },
+  { value: 'Casual Dating', label: 'Casual Dating', emoji: '😊' },
+  { value: 'Not sure yet', label: 'Not sure yet', emoji: '🤔' },
 ];
 
 const LookingForStep: React.FC<Props> = ({ lookingFor, onUpdate, onNext, onBack, onSkip, currentStep, totalSteps }) => {

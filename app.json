@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Tribalmingle",
+    "name": "TribalMingle",
     "slug": "tmapp",
     "scheme": "tmapp",
     "version": "1.0.1",
@@ -28,7 +28,7 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.tribalmingle.app",
-      "versionCode": 2
+      "versionCode": 3
     },
     "web": {
       "favicon": "./assets/favicon.png"

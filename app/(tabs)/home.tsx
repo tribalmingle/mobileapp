@@ -21,10 +21,10 @@ const quickActions = [
   { icon: 'compass', title: 'Discover', subtitle: 'Browse new members nearby', route: '/(tabs)/discover', tone: colors.secondary },
   { icon: 'flame', title: 'Matches', subtitle: 'See who liked you back', route: '/(tabs)/matches', tone: colors.sunset },
   { icon: 'chatbubbles', title: 'Chat', subtitle: 'Jump back into conversations', route: '/(tabs)/chat', tone: colors.success },
-  { icon: 'ribbon', title: 'Premium & boosts', subtitle: 'Upgrade, boosts, spotlight', route: '/premium', tone: colors.accent },
+  { icon: 'heart', title: 'Guaranteed Dating', subtitle: 'Real dates, guaranteed', route: '/guaranteed-dating', tone: colors.sunset },
+  { icon: 'ribbon', title: 'Premium', subtitle: 'Upgrade for more features', route: '/premium', tone: colors.accent },
   { icon: 'shield-checkmark', title: 'Safety center', subtitle: 'Safety tips, report/block', route: '/safety', tone: colors.success },
   { icon: 'people', title: 'Community & events', subtitle: 'Join tribes and meetups', route: '/community', tone: colors.primaryLight },
-  { icon: 'sparkles', title: 'Concierge', subtitle: 'Date planning concierge', route: '/concierge', tone: colors.secondaryLight },
   { icon: 'book', title: 'Dating tips', subtitle: 'Guides and how-tos', route: '/tips', tone: colors.secondary },
   { icon: 'settings', title: 'Settings', subtitle: 'Account, privacy, notifications', route: '/settings', tone: colors.text.primary },
 ];

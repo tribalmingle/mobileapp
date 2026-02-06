@@ -203,6 +203,24 @@ export default function ProfileDetailScreen() {
   const matchWhy = profile?.matchReasons?.length
     ? profile.matchReasons
     : profile?.matchBreakdown?.map((item) => item.label) || [];
+  const verification = useMemo(() => {
+    const hasId = Boolean(
+      (profile as any)?.idVerificationUrl ||
+        (profile as any)?.verificationIdUrl ||
+        (profile as any)?.idVerification?.url
+    );
+    const hasSelfie = Boolean(
+      (profile as any)?.selfiePhoto ||
+        (profile as any)?.verificationSelfie
+    );
+    const isVerified = Boolean(
+      (profile as any)?.isVerified ||
+        (profile as any)?.verified ||
+        (profile as any)?.verificationStatus === 'verified' ||
+        (hasId && hasSelfie)
+    );
+    return { isVerified, hasId, hasSelfie };
+  }, [profile]);
   const sharedRows = useMemo(() => {
     if (!profile || !currentUser) return [] as Array<{ label: string; you: string; them: string }>;
     const normalize = (value?: string | null) => (value || '').trim().toLowerCase();
@@ -373,12 +391,26 @@ export default function ProfileDetailScreen() {
                   </View>
                 </View>
                 <View style={styles.badgeStack}>
-                  {profile.verified && (
-                    <View style={styles.badge}>
-                      <Ionicons name="shield-checkmark" size={16} color={colors.primaryDark} />
-                      <Text style={styles.badgeText}>Verified</Text>
-                    </View>
-                  )}
+                  <View
+                    style={[
+                      styles.badge,
+                      verification.isVerified ? styles.badgeVerified : styles.badgeUnverified,
+                    ]}
+                  >
+                    <Ionicons
+                      name={verification.isVerified ? 'shield-checkmark' : 'alert-circle'}
+                      size={16}
+                      color={verification.isVerified ? colors.success : colors.warning}
+                    />
+                    <Text
+                      style={[
+                        styles.badgeText,
+                        verification.isVerified ? styles.badgeTextVerified : styles.badgeTextUnverified,
+                      ]}
+                    >
+                      {verification.isVerified ? 'Verified user' : 'Unverified user'}
+                    </Text>
+                  </View>
                   <View style={styles.badge}>
                     <Ionicons name="sparkles" size={16} color={colors.primaryDark} />
                     <Text style={styles.badgeText}>{compatibility}% match</Text>
@@ -694,10 +726,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.glass.stroke,
   },
+  badgeVerified: {
+    backgroundColor: 'rgba(52, 211, 153, 0.15)',
+    borderColor: 'rgba(52, 211, 153, 0.45)',
+  },
+  badgeUnverified: {
+    backgroundColor: 'rgba(251, 191, 36, 0.15)',
+    borderColor: 'rgba(251, 191, 36, 0.45)',
+  },
   badgeText: {
     ...typography.small,
     color: colors.text.primary,
     fontWeight: '600',
+  },
+  badgeTextVerified: {
+    color: colors.success,
+    fontWeight: '700',
+  },
+  badgeTextUnverified: {
+    color: colors.warning,
+    fontWeight: '700',
   },
   whyButton: {
     flexDirection: 'row',

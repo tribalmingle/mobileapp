@@ -29,6 +29,16 @@ const WorkStep: React.FC<Props> = ({ work, onUpdate, onNext, onBack, onSkip, cur
     onNext();
   };
 
+  const handleOccupationChange = (value: string) => {
+    setOccupation(value);
+    onUpdate({ occupation: value, workType });
+  };
+
+  const handleWorkTypeChange = (value: string) => {
+    setWorkType(value);
+    onUpdate({ occupation, workType: value });
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.progressContainer}>
@@ -57,7 +67,7 @@ const WorkStep: React.FC<Props> = ({ work, onUpdate, onNext, onBack, onSkip, cur
               placeholder="What do you do?"
               placeholderTextColor="rgba(255, 255, 255, 0.5)"
               value={occupation}
-              onChangeText={setOccupation}
+              onChangeText={handleOccupationChange}
             />
           </View>
 
@@ -67,7 +77,7 @@ const WorkStep: React.FC<Props> = ({ work, onUpdate, onNext, onBack, onSkip, cur
               <TouchableOpacity
                 key={type}
                 style={[styles.option, workType === type && styles.optionSelected]}
-                onPress={() => setWorkType(type)}
+                onPress={() => handleWorkTypeChange(type)}
               >
                 <Text style={[styles.optionText, workType === type && styles.optionTextSelected]}>{type}</Text>
               </TouchableOpacity>
