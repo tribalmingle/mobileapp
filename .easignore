@@ -9,22 +9,11 @@ node_modules/
 .expo/
 .expo-shared/
 
-# Android build artifacts
-android/.gradle
-android/build
-android/app/build
-android/app/.cxx
-android/.idea
-**/.cxx/
-**/build/
-**/.gradle/
-
-# iOS build artifacts
-ios/build/
-ios/Pods/
-ios/Podfile.lock
-ios/.xcworkspace/
-ios/DerivedData/
+# Force CNG (Continuous Native Generation) on EAS
+# EAS will run `npx expo prebuild` and generate native projects
+# This is faster and uses EAS's optimized build caching
+android/
+ios/
 
 # Local tooling / editor
 .vscode/
