@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path } from 'react-native-svg';
+import StepProgressHeader from '@/components/StepProgressHeader';
 
 interface Props {
   interests: string[];
@@ -49,7 +49,7 @@ const InterestsStep: React.FC<Props> = ({ interests, loveLanguage, onUpdate, onN
       setSelectedLoveLanguage(selectedLoveLanguage.filter((item) => item !== language));
       return;
     }
-    if (selectedLoveLanguage.length >= 2) {
+    if (selectedLoveLanguage.length >= 3) {
       return;
     }
     setSelectedLoveLanguage([...selectedLoveLanguage, language]);
@@ -57,22 +57,12 @@ const InterestsStep: React.FC<Props> = ({ interests, loveLanguage, onUpdate, onN
 
   return (
     <View style={styles.container}>
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: `${(currentStep / totalSteps) * 100}%` }]} />
-        </View>
-        <Text style={styles.progressText}>Step {currentStep} of {totalSteps}</Text>
-      </View>
-
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Svg width="24" height="24" viewBox="0 0 24 24">
-            <Path d="M15 18L9 12L15 6" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
-        </TouchableOpacity>
-        <Text style={styles.title}>Interests</Text>
-        <TouchableOpacity onPress={onSkip}><Text style={styles.skipText}>Skip</Text></TouchableOpacity>
-      </View>
+      <StepProgressHeader
+        currentStep={currentStep}
+        title="Interests"
+        onBack={onBack}
+        onSkip={onSkip}
+      />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         <Text style={styles.subtitle}>What are you interested in?</Text>
@@ -93,7 +83,7 @@ const InterestsStep: React.FC<Props> = ({ interests, loveLanguage, onUpdate, onN
         </View>
 
         <Text style={[styles.subtitle, styles.sectionSpacing]}>Love language</Text>
-        <Text style={styles.description}>Select up to 2 ways you prefer to receive love.</Text>
+        <Text style={styles.description}>Select up to 3 ways you prefer to receive love.</Text>
         <View style={styles.optionsContainer}>
           {LOVE_LANGUAGE_OPTIONS.map((language) => (
             <TouchableOpacity
@@ -107,7 +97,7 @@ const InterestsStep: React.FC<Props> = ({ interests, loveLanguage, onUpdate, onN
             </TouchableOpacity>
           ))}
         </View>
-        <Text style={styles.helperText}>{selectedLoveLanguage.length}/2 selected</Text>
+        <Text style={styles.helperText}>{selectedLoveLanguage.length}/3 selected{selectedLoveLanguage.length >= 3 ? ' (max reached)' : ''}</Text>
       </ScrollView>
 
       <View style={styles.actions}>

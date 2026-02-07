@@ -10,6 +10,8 @@ import { useScreenTracking } from '@/hooks/useScreenTracking';
 import { fetchNotifications } from '@/api/notifications';
 import { useNotificationStore } from '@/store/notificationStore';
 import { useAuthStore } from '@/store/authStore';
+import GuaranteedDatingPopup from '@/components/GuaranteedDatingPopup';
+import SafetyReminderPopup from '@/components/SafetyReminderPopup';
 
 export default function RootLayout() {
   useScreenTracking();
@@ -74,6 +76,8 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
+      {isAuthenticated && <GuaranteedDatingPopup />}
+      {isAuthenticated && <SafetyReminderPopup />}
     </SafeAreaProvider>
   );
 }

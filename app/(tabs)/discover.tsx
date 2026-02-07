@@ -276,22 +276,20 @@ export default function DiscoverScreen() {
               {topCard.matchPercent || topCard.compatibility || 95}% Match
             </Text>
           </View>
-          <TouchableOpacity
-            style={styles.matchWhy}
-            onPress={() => showMatchWhy(topCard)}
-            activeOpacity={0.8}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={styles.matchWhyText}>See why</Text>
-            <Ionicons name="chevron-forward" size={12} color="#FFFFFF" />
-          </TouchableOpacity>
           
           {/* Profile details at bottom */}
           <View style={styles.cardContent}>
             <View style={styles.profileInfo}>
-              <Text style={styles.nameAge} numberOfLines={1}>
-                {topCard.name}{topCard.age ? `, ${topCard.age}` : ''}
-              </Text>
+              <View style={styles.nameRow}>
+                <Text style={styles.nameAge} numberOfLines={1}>
+                  {topCard.name}{topCard.age ? `, ${topCard.age}` : ''}
+                </Text>
+                {topCard.verified && (
+                  <View style={{ backgroundColor: '#fff', borderRadius: 12, padding: 1.5, shadowColor: '#1877F2', shadowOpacity: 0.5, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 3 }}>
+                    <Ionicons name="checkmark-circle" size={20} color="#1877F2" />
+                  </View>
+                )}
+              </View>
               <View style={styles.tribeRow}>
                 <Text style={styles.tribe} numberOfLines={1}>
                   {topCard.tribe || 'Swahili'}
@@ -358,10 +356,23 @@ export default function DiscoverScreen() {
     if (!topCard && !isLoading) {
       return (
         <View style={styles.emptyState}>
-          <Ionicons name="heart-dislike-outline" size={64} color={colors.text.secondary} />
-          <Text style={styles.emptyText}>No more profiles</Text>
+          <View style={styles.emptyIconContainer}>
+            <Ionicons name="heart" size={48} color={colors.primaryLight} />
+          </View>
+          <Text style={styles.emptyTitle}>You've seen everyone!</Text>
+          <Text style={styles.emptySubtitle}>
+            New profiles are added daily.{'\n'}Check back soon for fresh matches!
+          </Text>
           <TouchableOpacity onPress={loadFeed} style={styles.reloadButton}>
-            <Text style={styles.reloadText}>Reload</Text>
+            <LinearGradient
+              colors={['#D4AF37', '#B8860B']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.reloadGradient}
+            >
+              <Ionicons name="refresh" size={18} color={colors.white} />
+              <Text style={styles.reloadText}>Refresh Feed</Text>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
       );
@@ -397,6 +408,20 @@ export default function DiscoverScreen() {
                 style={styles.rejectGradient}
               >
                 <Ionicons name="close" size={32} color="#FFFFFF" />
+              </LinearGradient>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.actionButton, styles.superLikeButton]}
+              onPress={() => animateSwipe(0, 'superlike')}
+              disabled={isActioning || !topCard}
+              activeOpacity={0.7}
+            >
+              <LinearGradient
+                colors={['#D4AF37', '#B8860B']}
+                style={styles.superLikeGradient}
+              >
+                <Ionicons name="star" size={28} color="#FFFFFF" />
               </LinearGradient>
             </TouchableOpacity>
             
@@ -587,48 +612,23 @@ const styles = StyleSheet.create({
   // Match percentage badge
   matchBadge: {
     position: 'absolute',
-    top: 16,
-    right: 16,
-    backgroundColor: 'rgba(20,20,20,0.8)',
+    top: 12,
+    right: 12,
+    backgroundColor: 'rgba(20,20,20,0.75)',
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255,215,0,0.35)',
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  matchText: {
-    ...typography.body,
-    color: '#FFD700',
-    fontWeight: '700',
-    fontSize: 13,
-    letterSpacing: 0.2,
-  },
-  matchWhy: {
-    position: 'absolute',
-    top: 52,
-    right: 16,
+    paddingVertical: 5,
+    borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
+    borderColor: 'rgba(255,215,0,0.35)',
   },
-  matchWhyText: {
-    ...typography.caption,
-    color: colors.white,
-    fontWeight: '600',
+  matchText: {
+    color: '#FFD700',
+    fontWeight: '700',
     fontSize: 12,
+    letterSpacing: 0.2,
   },
   modalOverlay: {
     flex: 1,
@@ -697,37 +697,41 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    padding: spacing.lg,
-    paddingBottom: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+    paddingTop: spacing.sm,
   },
   profileInfo: {
-    gap: 3,
+    gap: 4,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   nameAge: {
-    ...typography.h1,
     color: colors.white,
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: '800',
     letterSpacing: 0.3,
-    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowColor: 'rgba(0,0,0,0.7)',
     textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 8,
+    textShadowRadius: 6,
   },
   tribe: {
-    ...typography.body,
     color: '#FF8C5A',
-    fontSize: 17,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
     letterSpacing: 0.2,
-    textShadowColor: 'rgba(0,0,0,0.4)',
+    textShadowColor: 'rgba(0,0,0,0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
   },
   tribeRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: spacing.sm,
-    flexWrap: 'wrap',
   },
   cardActions: {
     flexDirection: 'row',
@@ -765,13 +769,12 @@ const styles = StyleSheet.create({
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 3,
     marginTop: 2,
   },
   location: {
-    ...typography.body,
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 14,
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 12,
     fontWeight: '500',
     textShadowColor: 'rgba(0,0,0,0.5)',
     textShadowOffset: { width: 0, height: 1 },
@@ -844,6 +847,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  superLikeButton: {
+    borderWidth: 3,
+    borderColor: '#D4AF37',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+  },
+  superLikeGradient: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   
   // Recent matchings section
   recentSection: {
@@ -867,6 +882,11 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 36,
     position: 'relative',
+    shadowColor: '#D4AF37',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 4,
   },
   recentImage: {
     width: 50,
@@ -881,7 +901,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     borderRadius: 36,
     borderWidth: 2.5,
-    borderColor: '#F18A34',
+    borderColor: '#D4AF37',
   },
   
   // Loading and error states
@@ -901,17 +921,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.md,
+    paddingHorizontal: spacing.xl,
+  },
+  emptyIconContainer: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: 'rgba(139, 92, 246, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  emptyTitle: {
+    ...typography.h2,
+    color: colors.text.primary,
+    fontWeight: '700',
+  },
+  emptySubtitle: {
+    ...typography.body,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 22,
   },
   emptyText: {
     ...typography.h3,
     color: colors.text.secondary,
   },
   reloadButton: {
-    backgroundColor: colors.primary,
+    marginTop: spacing.md,
+    borderRadius: borderRadius.full,
+    overflow: 'hidden',
+  },
+  reloadGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
-    borderRadius: borderRadius.full,
-    marginTop: spacing.sm,
   },
   reloadText: {
     ...typography.body,

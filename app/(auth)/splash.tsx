@@ -61,7 +61,7 @@ export default function SplashScreen() {
     <LinearGradient colors={['#0A0A0A', '#1a0a2e']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gradient}>
       <View style={styles.container}>
         <Animated.View style={[styles.logoContainer, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
-          <Image source={require('../../assets/logop.webp')} style={styles.logoImage} resizeMode="contain" />
+          <Image source={require('../../assets/logo.png')} style={styles.logoImage} resizeMode="contain" />
           <Text style={styles.appName}>TRIBAL MINGLE</Text>
           <Text style={styles.tagline}>Connect with Your Roots</Text>
         </Animated.View>

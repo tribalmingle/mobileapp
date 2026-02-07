@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, ScrollView, StyleSheet, ViewStyle, ScrollViewProps, TouchableOpacity, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, Edge } from 'react-native-safe-area-context';
 import { router, useNavigation } from 'expo-router';
 import { colors, gradients, spacing, typography, borderRadius } from '@/theme';
 import UniversalHeader, { UniversalHeaderProps } from './UniversalHeader';
@@ -14,6 +14,8 @@ interface UniversalBackgroundProps extends Partial<UniversalHeaderProps> {
   style?: ViewStyle;
   contentContainerStyle?: ScrollViewProps['contentContainerStyle'];
   showBottomNav?: boolean;
+  /** Control which safe area edges are applied. Default: all edges. Use ['top'] for keyboard screens. */
+  safeAreaEdges?: Edge[];
 }
 
 export default function UniversalBackground({
@@ -36,6 +38,7 @@ export default function UniversalBackground({
   onGuaranteedDatingPress,
   rightAction,
   showBottomNav = false,
+  safeAreaEdges,
 }: UniversalBackgroundProps) {
   const Container = scrollable ? ScrollView : View;
   const navigation = useNavigation<any>();
@@ -62,7 +65,7 @@ export default function UniversalBackground({
   const showPageHeader = resolvedShowBackButton || Boolean(title);
 
   const content = (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={safeAreaEdges}>
       <UniversalHeader
         title={undefined}
         subtitle={undefined}

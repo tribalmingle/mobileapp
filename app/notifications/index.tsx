@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import UniversalBackground from '@/components/universal/UniversalBackground';
 import GlassCard from '@/components/GlassCard';
@@ -7,13 +7,12 @@ import { useNotificationStore } from '@/store/notificationStore';
 import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from '@/api/notifications';
 
 export default function NotificationsScreen() {
-  const { items, markAllRead, markRead, setNotifications, unreadCount } = useNotificationStore((s) => ({
-    items: s.items,
-    markAllRead: s.markAllRead,
-    markRead: s.markRead,
-    setNotifications: s.setNotifications,
-    unreadCount: s.unreadCount,
-  }));
+  // Select primitives / stable references individually to avoid new-object-per-render
+  const items = useNotificationStore((s) => s.items);
+  const unreadCount = useNotificationStore((s) => s.unreadCount);
+  const setNotifications = useNotificationStore((s) => s.setNotifications);
+  const storeMarkAllRead = useNotificationStore((s) => s.markAllRead);
+  const storeMarkRead = useNotificationStore((s) => s.markRead);
 
   const [loading, setLoading] = useState(false);
 
@@ -24,8 +23,8 @@ export default function NotificationsScreen() {
         setLoading(true);
         const data = await fetchNotifications();
         if (isMounted) setNotifications(data as any);
-      } catch (error) {
-        // ignore for now; UI will show empty state
+      } catch {
+        // ignore; UI will show empty state
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -34,31 +33,27 @@ export default function NotificationsScreen() {
     return () => {
       isMounted = false;
     };
-  }, [setNotifications]);
+  }, []); // run once on mount – setNotifications is a stable Zustand action
 
-  const handleMarkAll = async () => {
+  const handleMarkAll = useCallback(async () => {
     try {
+      storeMarkAllRead();
       await markAllNotificationsRead();
-      markAllRead();
     } catch {
       // swallow errors; keep UI responsive
     }
-  };
+  }, [storeMarkAllRead]);
 
-  const handlePress = async (id: string, read: boolean) => {
+  const handlePress = useCallback(async (id: string, read: boolean) => {
     if (!read) {
-      markRead(id);
+      storeMarkRead(id);
       try {
         await markNotificationRead(id);
       } catch {
         // ignore; store already updated
       }
     }
-  };
-
-  useEffect(() => {
-    markAllRead();
-  }, [markAllRead]);
+  }, [storeMarkRead]);
 
   return (
     <UniversalBackground scrollable title="Notifications" showBackButton>

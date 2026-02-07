@@ -6,6 +6,7 @@ import { Feather } from '@expo/vector-icons';
 import { router, usePathname } from 'expo-router';
 import { colors, gradients, spacing } from '@/theme';
 import { useNotificationStore } from '@/store/notificationStore';
+import { useChatStore } from '@/store/chatStore';
 
 interface NavItemConfig {
   id: string;
@@ -45,11 +46,11 @@ const NAV_ITEMS: NavItemConfig[] = [
     match: ['/(tabs)/chat', '/chat'],
   },
   {
-    id: 'profile',
-    label: 'Profile',
-    icon: 'user',
-    href: '/(tabs)/profile',
-    match: ['/profile', '/(tabs)/profile', '/subscription', '/guaranteed-dating', '/referrals', '/boosts', '/admin', '/safety'],
+    id: 'my-tribe',
+    label: 'My Tribe',
+    icon: 'users',
+    href: '/my-tribe',
+    match: ['/my-tribe'],
   },
 ];
 
@@ -57,7 +58,14 @@ export default function UniversalBottomNav({ totalUnreadCount = 0 }: { totalUnre
   const pathname = usePathname() ?? '';
   const insets = useSafeAreaInsets();
   const notificationUnread = useNotificationStore((s) => s.unreadCount);
-  const badgeCount = totalUnreadCount + notificationUnread;
+  const chatUnread = useChatStore((s) => s.unreadCount);
+  
+  // Use chat-specific unread count for the chat tab badge
+  const chatBadgeCount = totalUnreadCount + chatUnread;
+
+  // Hide the bottom nav when inside a chat conversation (chat/[id])
+  const isChatDetail = /^\/(tabs\/)?chat\/[^/]+/.test(pathname) && pathname !== '/(tabs)/chat' && pathname !== '/chat';
+  if (isChatDetail) return null;
 
   const handleNavigate = (href: string) => {
     router.replace(href);
@@ -71,15 +79,14 @@ export default function UniversalBottomNav({ totalUnreadCount = 0 }: { totalUnre
       style={[
         styles.container,
         {
-          // Handle safe area for both iOS and Android gesture navigation
-          paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? 12 : 8),
+          paddingBottom: Platform.OS === 'ios' ? Math.max(insets.bottom, 8) : spacing.sm,
         },
       ]}
     >
       {NAV_ITEMS.map((item) => {
         const isActive = item.match.some((segment) => pathname.startsWith(segment));
         const color = isActive ? colors.secondary : colors.text.secondary;
-        const showBadge = item.id === 'chat' && badgeCount > 0;
+        const showBadge = item.id === 'chat' && chatBadgeCount > 0;
 
         return (
           <TouchableOpacity
@@ -93,7 +100,7 @@ export default function UniversalBottomNav({ totalUnreadCount = 0 }: { totalUnre
               <Feather name={item.icon} size={22} color={color} />
               {showBadge && (
                 <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{badgeCount > 99 ? '99+' : badgeCount}</Text>
+                  <Text style={styles.badgeText}>{chatBadgeCount > 99 ? '99+' : chatBadgeCount}</Text>
                 </View>
               )}
             </View>

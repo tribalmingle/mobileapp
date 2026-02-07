@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadImageAsync } from '@/api/upload';
+import StepProgressHeader from '@/components/StepProgressHeader';
 
 interface IDVerification {
   url: string;
@@ -67,27 +67,18 @@ const IDVerificationStep: React.FC<Props> = ({ idVerification, onUpdate, onNext,
 
   return (
     <View style={styles.container}>
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: `${(currentStep / totalSteps) * 100}%` }]} />
-        </View>
-        <Text style={styles.progressText}>Step {currentStep} of {totalSteps}</Text>
-      </View>
-
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Svg width="24" height="24" viewBox="0 0 24 24">
-            <Path d="M15 18L9 12L15 6" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
-        </TouchableOpacity>
-        <Text style={styles.title}>Verify Your ID</Text>
-        <TouchableOpacity onPress={onSkip}>
-          <Text style={styles.skipText}>Skip</Text>
-        </TouchableOpacity>
-      </View>
+      <StepProgressHeader
+        currentStep={currentStep}
+        title="Verify Your ID"
+        onBack={onBack}
+        onSkip={onSkip}
+      />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        <Text style={styles.subtitle}>Upload a government-issued ID to earn a verified badge. This step is optional.</Text>
+        <Text style={styles.subtitle}>Upload a government-issued ID to earn a verified badge.</Text>
+        <View style={styles.optionalBadge}>
+          <Text style={styles.optionalText}>This step is optional - you can skip or continue without uploading</Text>
+        </View>
 
         <Text style={styles.sectionLabel}>Select ID Type</Text>
         <View style={styles.pillRow}>
@@ -125,14 +116,14 @@ const IDVerificationStep: React.FC<Props> = ({ idVerification, onUpdate, onNext,
       </ScrollView>
 
       <View style={styles.actions}>
-        <TouchableOpacity style={[styles.button, (uploading || !documentUrl) && styles.buttonDisabled]} onPress={handleContinue} disabled={uploading || !documentUrl}>
+        <TouchableOpacity style={[styles.button, uploading && styles.buttonDisabled]} onPress={handleContinue} disabled={uploading}>
           <LinearGradient
-            colors={documentUrl && !uploading ? ['#FF6B9D', '#F97316'] : ['#9CA3AF', '#6B7280']}
+            colors={!uploading ? ['#FF6B9D', '#F97316'] : ['#9CA3AF', '#6B7280']}
             style={styles.buttonGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
           >
-            <Text style={styles.buttonText}>{uploading ? 'Uploading...' : documentUrl ? 'Continue' : 'Upload your ID'}</Text>
+            <Text style={styles.buttonText}>{uploading ? 'Uploading...' : documentUrl ? 'Continue' : 'Continue without ID'}</Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -183,6 +174,8 @@ const styles = StyleSheet.create({
   uploadStatus: { marginTop: 10, color: '#34D399', fontSize: 13, fontWeight: '600' },
   uploadStatusPending: { marginTop: 10, color: 'rgba(255, 255, 255, 0.7)', fontSize: 13 },
   errorText: { color: '#F87171', marginTop: 6, fontSize: 13 },
+  optionalBadge: { backgroundColor: 'rgba(52, 211, 153, 0.15)', borderRadius: 8, padding: 12, marginBottom: 16 },
+  optionalText: { fontSize: 13, color: '#34D399', textAlign: 'center', lineHeight: 18 },
   actions: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20, backgroundColor: 'rgba(49, 46, 129, 0.95)' },
   button: { width: '100%', height: 56, borderRadius: 28, overflow: 'hidden' },
   buttonDisabled: { opacity: 0.8 },

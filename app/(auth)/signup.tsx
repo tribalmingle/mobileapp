@@ -1,5 +1,15 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, KeyboardAvoidingView, Modal, Platform } from 'react-native';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Animated,
+  Dimensions,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
@@ -9,26 +19,43 @@ import { LinearGradient } from 'expo-linear-gradient';
 import GlassCard from '@/components/GlassCard';
 import { useAuthStore } from '@/store/authStore';
 import { colors, spacing, typography, borderRadius } from '@/theme';
+import DateTimePicker from '@react-native-community/datetimepicker';
+
+const { width } = Dimensions.get('window');
+const TOTAL_STEPS = 4;
+
+// Step titles and subtitles for progressive UX
+const STEP_CONTENT = [
+  { title: "What's your email?", subtitle: "We'll send you a verification code" },
+  { title: "What's your name?", subtitle: 'This is how you\'ll appear on your profile' },
+  { title: 'Tell us about yourself', subtitle: 'Help us personalize your experience' },
+  { title: 'Secure your account', subtitle: 'Create a strong password' },
+];
 
 export default function SignupScreen() {
   const router = useRouter();
   const { signup } = useAuthStore();
-  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
-  const [selectedDay, setSelectedDay] = useState<string | null>(null);
-  const [selectedYear, setSelectedYear] = useState<string | null>(null);
-  const [showMonthModal, setShowMonthModal] = useState(false);
-  const [showDayModal, setShowDayModal] = useState(false);
-  const [showYearModal, setShowYearModal] = useState(false);
+  
+  // Step state
+  const [currentStep, setCurrentStep] = useState(1);
+  const progressAnim = useRef(new Animated.Value(1)).current;
+  
+  // Form fields
+  const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [gender, setGender] = useState<'male' | 'female' | ''>('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  
+  // UI state
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
   const validateEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  
   const calculateAge = (birthDate: Date) => {
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
@@ -37,84 +64,92 @@ export default function SignupScreen() {
     return age;
   };
 
-  const months = useMemo(
-    () => [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ],
-    [],
-  );
-
-  const years = useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    const arr: string[] = [];
-    for (let y = currentYear; y >= currentYear - 90; y--) {
-      arr.push(String(y));
-    }
-    return arr;
-  }, []);
-
-  const daysInSelectedMonth = useMemo(() => {
-    if (!selectedMonth || !selectedYear) return 31;
-    const monthIndex = months.indexOf(selectedMonth);
-    const yearNum = Number(selectedYear);
-    return new Date(yearNum, monthIndex + 1, 0).getDate();
-  }, [selectedMonth, selectedYear, months]);
-
-  const dayOptions = useMemo(() => Array.from({ length: daysInSelectedMonth }, (_, i) => String(i + 1)), [daysInSelectedMonth]);
-
-  const isDateSelected = Boolean(selectedMonth && selectedDay && selectedYear);
-
+  // Animate progress bar
   useEffect(() => {
-    if (!selectedDay) return;
-    const dayNum = Number(selectedDay);
-    if (dayNum > daysInSelectedMonth) {
-      setSelectedDay(String(daysInSelectedMonth));
-    }
-  }, [daysInSelectedMonth, selectedDay]);
+    Animated.spring(progressAnim, {
+      toValue: currentStep,
+      tension: 50,
+      friction: 8,
+      useNativeDriver: false,
+    }).start();
+  }, [currentStep, progressAnim]);
 
-  const buildDate = () => {
-    if (!isDateSelected) return null;
-    const monthIndex = months.indexOf(selectedMonth as string);
-    const dayNum = Number(selectedDay);
-    const yearNum = Number(selectedYear);
-    return new Date(yearNum, monthIndex, dayNum);
+  const progressWidth = progressAnim.interpolate({
+    inputRange: [1, TOTAL_STEPS],
+    outputRange: ['25%', '100%'],
+  });
+
+  // Step validation
+  const canProceed = useMemo(() => {
+    switch (currentStep) {
+      case 1:
+        return email.trim() && validateEmail(email);
+      case 2:
+        return firstName.trim() && lastName.trim();
+      case 3:
+        return dateOfBirth && gender;
+      case 4:
+        return password.length >= 8;
+      default:
+        return false;
+    }
+  }, [currentStep, email, firstName, lastName, dateOfBirth, gender, password]);
+
+  const handleNext = async () => {
+    setErrorMessage('');
+    
+    // Validate current step
+    switch (currentStep) {
+      case 1:
+        if (!validateEmail(email)) {
+          return setErrorMessage('Please enter a valid email address');
+        }
+        break;
+      case 2:
+        if (!firstName.trim()) return setErrorMessage('Please enter your first name');
+        if (!lastName.trim()) return setErrorMessage('Please enter your last name');
+        break;
+      case 3:
+        if (!dateOfBirth) return setErrorMessage('Please select your date of birth');
+        const age = calculateAge(dateOfBirth);
+        if (age < 30) return setErrorMessage('You must be at least 30 years old to use this platform');
+        if (!gender) return setErrorMessage('Please select your gender');
+        break;
+      case 4:
+        if (password.length < 8) return setErrorMessage('Password must be at least 8 characters');
+        break;
+    }
+
+    if (currentStep < TOTAL_STEPS) {
+      setCurrentStep(currentStep + 1);
+    } else {
+      // Final step - submit
+      await handleSignUp();
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep > 1) {
+      setErrorMessage('');
+      setCurrentStep(currentStep - 1);
+    } else {
+      router.back();
+    }
   };
 
   const handleSignUp = async () => {
-    setErrorMessage('');
-    if (!firstName.trim()) return setErrorMessage('Please enter your first name');
-    if (!lastName.trim()) return setErrorMessage('Please enter your last name');
-    if (!email.trim()) return setErrorMessage('Please enter your email');
-    if (!validateEmail(email)) return setErrorMessage('Please enter a valid email address');
-    const dob = buildDate();
-    if (!dob) return setErrorMessage('Please select your date of birth');
-    const age = calculateAge(dob);
-    if (age < 30) return setErrorMessage('You must be at least 30 years old to use this platform');
-    if (!gender) return setErrorMessage('Please select your gender');
-    if (!password) return setErrorMessage('Please enter a password');
-    if (password.length < 8) return setErrorMessage('Password must be at least 8 characters long');
-    if (password !== confirmPassword) return setErrorMessage('Passwords do not match');
-
+    if (!dateOfBirth) return;
+    
     setLoading(true);
     try {
+      const age = calculateAge(dateOfBirth);
       await signup({
         email: email.toLowerCase().trim(),
         password,
         name: `${firstName.trim()} ${lastName.trim()}`.trim(),
         age,
         gender,
-        dateOfBirth: dob.toISOString().split('T')[0],
+        dateOfBirth: dateOfBirth.toISOString().split('T')[0],
       });
 
       await SecureStore.setItemAsync('user_data', JSON.stringify({ name: `${firstName} ${lastName}`, email }));
@@ -126,180 +161,262 @@ export default function SignupScreen() {
       if (error?.message?.includes('already')) {
         setErrorMessage('This email is already registered. Please login or use a different email.');
       } else {
-        const errorMsg = error?.message || 'Failed to create account. Please try again.';
-        setErrorMessage(errorMsg);
+        setErrorMessage(error?.message || 'Failed to create account. Please try again.');
       }
     } finally {
       setLoading(false);
     }
   };
 
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  };
+
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <View style={styles.stepContent}>
+            <CustomInput
+              label=""
+              placeholder="your@email.com"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoFocus
+              editable={!loading}
+            />
+          </View>
+        );
+      
+      case 2:
+        return (
+          <View style={styles.stepContent}>
+            <CustomInput
+              label="First Name"
+              placeholder="Your first name"
+              value={firstName}
+              onChangeText={setFirstName}
+              autoFocus
+              editable={!loading}
+            />
+            <CustomInput
+              label="Last Name"
+              placeholder="Your last name"
+              value={lastName}
+              onChangeText={setLastName}
+              editable={!loading}
+            />
+          </View>
+        );
+      
+      case 3:
+        return (
+          <View style={styles.stepContent}>
+            {/* Birthday */}
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>Birthday</Text>
+              <TouchableOpacity
+                style={styles.dateButton}
+                onPress={() => setShowDatePicker(true)}
+                disabled={loading}
+              >
+                <Ionicons name="calendar-outline" size={22} color={colors.text.primary} />
+                <Text style={[styles.dateText, !dateOfBirth && styles.placeholder]}>
+                  {dateOfBirth ? formatDate(dateOfBirth) : 'Select your birthday'}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color={colors.text.secondary} />
+              </TouchableOpacity>
+              {dateOfBirth && (
+                <Text style={styles.ageHint}>
+                  Age: {calculateAge(dateOfBirth)} years old
+                </Text>
+              )}
+            </View>
+
+            {showDatePicker && (
+              <DateTimePicker
+                value={dateOfBirth || new Date(1990, 0, 1)}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(event, selectedDate) => {
+                  setShowDatePicker(Platform.OS === 'ios');
+                  if (selectedDate) {
+                    setDateOfBirth(selectedDate);
+                  }
+                }}
+                maximumDate={new Date(new Date().getFullYear() - 30, 11, 31)}
+                minimumDate={new Date(1930, 0, 1)}
+              />
+            )}
+
+            {/* Gender */}
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>Gender</Text>
+              <View style={styles.genderRow}>
+                <TouchableOpacity
+                  style={[styles.genderButton, gender === 'male' && styles.genderButtonActive]}
+                  onPress={() => setGender('male')}
+                  disabled={loading}
+                >
+                  <Ionicons
+                    name="male"
+                    size={28}
+                    color={gender === 'male' ? colors.white : colors.text.primary}
+                  />
+                  <Text style={[styles.genderText, gender === 'male' && styles.genderTextActive]}>
+                    Male
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.genderButton, gender === 'female' && styles.genderButtonActive]}
+                  onPress={() => setGender('female')}
+                  disabled={loading}
+                >
+                  <Ionicons
+                    name="female"
+                    size={28}
+                    color={gender === 'female' ? colors.white : colors.text.primary}
+                  />
+                  <Text style={[styles.genderText, gender === 'female' && styles.genderTextActive]}>
+                    Female
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        );
+      
+      case 4:
+        return (
+          <View style={styles.stepContent}>
+            <View style={styles.passwordContainer}>
+              <CustomInput
+                label=""
+                placeholder="Create a password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                editable={!loading}
+                autoFocus
+              />
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off' : 'eye'}
+                  size={22}
+                  color={colors.text.secondary}
+                />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.passwordRequirements}>
+              <View style={styles.requirementRow}>
+                <Ionicons
+                  name={password.length >= 8 ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={18}
+                  color={password.length >= 8 ? colors.success : colors.text.secondary}
+                />
+                <Text style={[styles.requirementText, password.length >= 8 && styles.requirementMet]}>
+                  At least 8 characters
+                </Text>
+              </View>
+            </View>
+          </View>
+        );
+      
+      default:
+        return null;
+    }
+  };
+
   return (
     <LinearGradient colors={['#0A0A0A', '#1a0a2e']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gradient}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-        <View style={styles.panel}>
-          <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header with back button */}
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.backButton} onPress={handleBack}>
               <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
             </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.replace('/(auth)/login')}>
+              <Text style={styles.signInLink}>Sign In</Text>
+            </TouchableOpacity>
+          </View>
 
-            <View style={styles.headerContainer}>
-              <Text style={styles.title}>Create Account</Text>
-              <Text style={styles.subtitle}>Join TribalMingle to find your perfect match</Text>
+          {/* Progress indicator */}
+          <View style={styles.progressContainer}>
+            <View style={styles.progressTrack}>
+              <Animated.View style={[styles.progressFill, { width: progressWidth }]}>
+                <LinearGradient
+                  colors={['#FF6B9D', '#F97316']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.progressGradient}
+                />
+              </Animated.View>
             </View>
-
-            <GlassCard style={styles.card}>
-              <View style={styles.row}>
-                <View style={styles.halfInput}>
-                  <CustomInput label="First Name" placeholder="First name" value={firstName} onChangeText={setFirstName} editable={!loading} />
+            <View style={styles.stepIndicators}>
+              {[1, 2, 3, 4].map((step) => (
+                <View
+                  key={step}
+                  style={[
+                    styles.stepDot,
+                    step <= currentStep && styles.stepDotActive,
+                    step < currentStep && styles.stepDotComplete,
+                  ]}
+                >
+                  {step < currentStep ? (
+                    <Ionicons name="checkmark" size={12} color={colors.white} />
+                  ) : (
+                    <Text style={[styles.stepNumber, step <= currentStep && styles.stepNumberActive]}>
+                      {step}
+                    </Text>
+                  )}
                 </View>
-                <View style={styles.halfInput}>
-                  <CustomInput label="Last Name" placeholder="Last name" value={lastName} onChangeText={setLastName} editable={!loading} />
-                </View>
-              </View>
-              <CustomInput label="Email" placeholder="your@email.com" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" editable={!loading} />
-
-              <View style={styles.dateContainer}>
-                <Text style={styles.label}>Birthday</Text>
-                <View style={styles.dobRow}>
-                  <TouchableOpacity style={styles.dobSelect} onPress={() => setShowMonthModal(true)} disabled={loading}>
-                    <Text style={[styles.dobLabel, !selectedMonth && styles.dobPlaceholder]}>Month</Text>
-                    <Text style={[styles.dobValue, !selectedMonth && styles.dobPlaceholder]}>{selectedMonth || 'Select'}</Text>
-                    <Ionicons name="chevron-down" size={18} color={colors.text.primary} />
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.dobSelect} onPress={() => setShowDayModal(true)} disabled={loading}>
-                    <Text style={[styles.dobLabel, !selectedDay && styles.dobPlaceholder]}>Day</Text>
-                    <Text style={[styles.dobValue, !selectedDay && styles.dobPlaceholder]}>{selectedDay || 'Select'}</Text>
-                    <Ionicons name="chevron-down" size={18} color={colors.text.primary} />
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.dobSelect} onPress={() => setShowYearModal(true)} disabled={loading}>
-                    <Text style={[styles.dobLabel, !selectedYear && styles.dobPlaceholder]}>Year</Text>
-                    <Text style={[styles.dobValue, !selectedYear && styles.dobPlaceholder]}>{selectedYear || 'Select'}</Text>
-                    <Ionicons name="chevron-down" size={18} color={colors.text.primary} />
-                  </TouchableOpacity>
-                </View>
-                {isDateSelected ? <Text style={styles.ageHint}>Age: {calculateAge(buildDate() as Date)} years old</Text> : null}
-              </View>
-
-              <View style={styles.genderContainer}>
-                <Text style={styles.label}>Gender</Text>
-                <View style={styles.genderButtons}>
-                  <TouchableOpacity
-                    style={[styles.genderButton, gender === 'male' && styles.genderButtonActive]}
-                    onPress={() => setGender('male')}
-                    disabled={loading}
-                  >
-                    <Ionicons name="male" size={24} color={colors.text.primary} />
-                    <Text style={[styles.genderText, gender === 'male' && styles.genderTextActive]}>Male</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.genderButton, gender === 'female' && styles.genderButtonActive]}
-                    onPress={() => setGender('female')}
-                    disabled={loading}
-                  >
-                    <Ionicons name="female" size={24} color={colors.text.primary} />
-                    <Text style={[styles.genderText, gender === 'female' && styles.genderTextActive]}>Female</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <CustomInput label="Password" placeholder="Create a password (min 8 characters)" value={password} onChangeText={setPassword} secureTextEntry editable={!loading} />
-
-              <CustomInput
-                label="Confirm Password"
-                placeholder="Re-enter your password"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry
-                editable={!loading}
-                error={confirmPassword.length > 0 && password !== confirmPassword ? 'Passwords do not match' : undefined}
-              />
-
-              {errorMessage ? (
-                <View style={styles.errorContainer}>
-                  <Ionicons name="alert-circle" size={20} color={colors.error} />
-                  <Text style={styles.errorText}>{errorMessage}</Text>
-                </View>
-              ) : null}
-
-              <PrimaryButton title="Sign Up" onPress={handleSignUp} loading={loading} disabled={loading} style={styles.signUpButton} />
-
-              <View style={styles.footer}>
-                <Text style={styles.footerText}>Already have an account? </Text>
-                <TouchableOpacity onPress={() => router.push('/(auth)/login')} disabled={loading}>
-                  <Text style={styles.signInText}>Sign In</Text>
-                </TouchableOpacity>
-              </View>
-            </GlassCard>
-          </ScrollView>
-        </View>
-
-        <Modal visible={showMonthModal} transparent animationType="fade" onRequestClose={() => setShowMonthModal(false)}>
-          <View style={styles.modalBackdrop}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Select Month</Text>
-              <ScrollView>
-                {months.map((month) => (
-                  <TouchableOpacity
-                    key={month}
-                    style={styles.modalOption}
-                    onPress={() => {
-                      setSelectedMonth(month);
-                      setShowMonthModal(false);
-                      if (!selectedDay) setSelectedDay('1');
-                    }}
-                  >
-                    <Text style={styles.modalOptionText}>{month}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              ))}
             </View>
           </View>
-        </Modal>
 
-        <Modal visible={showDayModal} transparent animationType="fade" onRequestClose={() => setShowDayModal(false)}>
-          <View style={styles.modalBackdrop}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Select Day</Text>
-              <ScrollView>
-                {dayOptions.map((day) => (
-                  <TouchableOpacity
-                    key={day}
-                    style={styles.modalOption}
-                    onPress={() => {
-                      setSelectedDay(day);
-                      setShowDayModal(false);
-                    }}
-                  >
-                    <Text style={styles.modalOptionText}>{day}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+          {/* Step content */}
+          <GlassCard style={styles.card} intensity={20}>
+            <View style={styles.titleContainer}>
+              <Text style={styles.title}>{STEP_CONTENT[currentStep - 1].title}</Text>
+              <Text style={styles.subtitle}>{STEP_CONTENT[currentStep - 1].subtitle}</Text>
             </View>
-          </View>
-        </Modal>
 
-        <Modal visible={showYearModal} transparent animationType="fade" onRequestClose={() => setShowYearModal(false)}>
-          <View style={styles.modalBackdrop}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Select Year</Text>
-              <ScrollView>
-                {years.map((year) => (
-                  <TouchableOpacity
-                    key={year}
-                    style={styles.modalOption}
-                    onPress={() => {
-                      setSelectedYear(year);
-                      setShowYearModal(false);
-                    }}
-                  >
-                    <Text style={styles.modalOptionText}>{year}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
+            {renderStepContent()}
+
+            {errorMessage ? (
+              <View style={styles.errorContainer}>
+                <Ionicons name="alert-circle" size={18} color={colors.error} />
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              </View>
+            ) : null}
+
+            <PrimaryButton
+              title={currentStep === TOTAL_STEPS ? 'Create Account' : 'Continue'}
+              onPress={handleNext}
+              loading={loading}
+              disabled={loading || !canProceed}
+              style={[styles.continueButton, !canProceed && styles.continueButtonDisabled]}
+            />
+          </GlassCard>
+
+          {/* Footer */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Already have an account? </Text>
+            <TouchableOpacity onPress={() => router.replace('/(auth)/login')} disabled={loading}>
+              <Text style={styles.footerLink}>Sign In</Text>
+            </TouchableOpacity>
           </View>
-        </Modal>
+        </ScrollView>
       </KeyboardAvoidingView>
     </LinearGradient>
   );
@@ -308,57 +425,212 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
   gradient: { flex: 1 },
   container: { flex: 1 },
-  panel: { flex: 1, backgroundColor: 'transparent' },
-  scrollContent: { flexGrow: 1, padding: spacing.screenPadding, paddingTop: 60 },
-  backButton: { width: 40, height: 40, justifyContent: 'center', marginBottom: spacing.lg },
-  headerContainer: { marginBottom: spacing['2xl'] },
-  title: { ...typography.styles.h1, marginBottom: spacing.sm, fontFamily: typography.fontFamily.display, color: colors.text.primary },
-  subtitle: { ...typography.styles.body, fontSize: 16, color: colors.text.primary, fontFamily: typography.fontFamily.sans },
-  card: { padding: spacing.cardPaddingLarge },
-  dateContainer: { marginBottom: spacing.lg },
-  label: { ...typography.styles.label, marginBottom: spacing.sm, color: colors.text.primary, fontFamily: typography.fontFamily.sans },
-  ageHint: { ...typography.styles.bodySmall, color: colors.text.primary, fontFamily: typography.fontFamily.sans, marginTop: spacing.xs },
-  row: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md },
-  halfInput: { flex: 1 },
-  dobRow: { flexDirection: 'row', gap: spacing.sm },
-  dobSelect: {
-    flex: 1,
-    backgroundColor: colors.glass.medium,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.glass.medium,
-    gap: spacing.xs,
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.lg,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: spacing.xxl,
   },
-  dobLabel: { ...typography.styles.bodySmall, color: colors.text.secondary, fontFamily: typography.fontFamily.sans },
-  dobValue: { ...typography.styles.body, color: colors.text.primary, fontFamily: typography.fontFamily.sans },
-  dobPlaceholder: { color: colors.text.secondary },
-  genderContainer: { marginBottom: spacing.lg },
-  genderButtons: { flexDirection: 'row', gap: spacing.md },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+  },
+  signInLink: {
+    ...typography.body,
+    color: colors.secondary,
+    fontWeight: '600',
+  },
+  progressContainer: {
+    marginBottom: spacing.xl,
+  },
+  progressTrack: {
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  progressGradient: {
+    flex: 1,
+    borderRadius: 2,
+  },
+  stepIndicators: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.sm,
+  },
+  stepDot: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepDotActive: {
+    borderColor: colors.orange.primary,
+    backgroundColor: 'rgba(249, 115, 22, 0.2)',
+  },
+  stepDotComplete: {
+    backgroundColor: colors.orange.primary,
+    borderColor: colors.orange.primary,
+  },
+  stepNumber: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.4)',
+  },
+  stepNumberActive: {
+    color: colors.orange.primary,
+  },
+  card: {
+    padding: spacing.xl,
+    marginBottom: spacing.lg,
+  },
+  titleContainer: {
+    marginBottom: spacing.xl,
+  },
+  title: {
+    ...typography.h2,
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  subtitle: {
+    ...typography.body,
+    color: colors.text.secondary,
+  },
+  stepContent: {
+    marginBottom: spacing.lg,
+  },
+  fieldContainer: {
+    marginBottom: spacing.lg,
+  },
+  label: {
+    ...typography.label,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+  },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.glass.medium,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.glass.stroke,
+  },
+  dateText: {
+    flex: 1,
+    ...typography.body,
+    color: colors.text.primary,
+  },
+  placeholder: {
+    color: colors.text.secondary,
+  },
+  ageHint: {
+    ...typography.small,
+    color: colors.success,
+    marginTop: spacing.xs,
+  },
+  genderRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
   genderButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: spacing.sm,
     backgroundColor: colors.glass.medium,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
     padding: spacing.md,
     borderWidth: 2,
     borderColor: 'transparent',
+  },
+  genderButtonActive: {
+    backgroundColor: colors.orange.primary,
+    borderColor: colors.orange.dark,
+  },
+  genderText: {
+    ...typography.body,
+    color: colors.text.primary,
+    fontWeight: '600',
+  },
+  genderTextActive: {
+    color: colors.white,
+  },
+  passwordContainer: {
+    position: 'relative',
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
+    padding: spacing.sm,
+  },
+  passwordRequirements: {
+    marginTop: spacing.md,
+  },
+  requirementRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
   },
-  genderButtonActive: { backgroundColor: colors.glass.light, borderColor: colors.orange.primary },
-  genderText: { ...typography.styles.body, color: colors.text.primary, fontWeight: '600', fontFamily: typography.fontFamily.sans },
-  genderTextActive: { color: colors.text.primary },
-  signUpButton: { marginTop: spacing.md },
-  footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
-  footerText: { ...typography.styles.body, color: colors.text.primary, fontFamily: typography.fontFamily.sans },
-  signInText: { ...typography.styles.button, color: colors.text.primary, fontFamily: typography.fontFamily.sans },
-  errorContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: spacing.md, borderRadius: 8, marginBottom: spacing.lg },
-  errorText: { ...typography.styles.body, color: colors.error, marginLeft: spacing.sm, flex: 1, fontFamily: typography.fontFamily.sans },
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: spacing.lg },
-  modalContent: { backgroundColor: colors.glass.medium, borderRadius: borderRadius.lg, padding: spacing.lg, maxHeight: '70%' },
-  modalTitle: { ...typography.styles.h4, color: colors.text.primary, marginBottom: spacing.md, fontFamily: typography.fontFamily.sans },
-  modalOption: { paddingVertical: spacing.sm },
-  modalOptionText: { ...typography.styles.body, color: colors.text.primary, fontFamily: typography.fontFamily.sans },
+  requirementText: {
+    ...typography.small,
+    color: colors.text.secondary,
+  },
+  requirementMet: {
+    color: colors.success,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  errorText: {
+    ...typography.small,
+    color: colors.error,
+    flex: 1,
+  },
+  continueButton: {
+    marginTop: spacing.sm,
+  },
+  continueButtonDisabled: {
+    opacity: 0.5,
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: spacing.md,
+  },
+  footerText: {
+    ...typography.body,
+    color: colors.text.secondary,
+  },
+  footerLink: {
+    ...typography.body,
+    color: colors.secondary,
+    fontWeight: '700',
+  },
 });

@@ -5,21 +5,55 @@
     "jsx": "react-native",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "types": ["react", "react-native"],
+    "types": [
+      "react",
+      "react-native"
+    ],
     "baseUrl": "./",
     "skipLibCheck": true,
     "paths": {
-      "@/*": ["src/*"],
-      "@/theme": ["src/theme/theme"],
-      "@/constants": ["src/constants"],
-      "@/components/*": ["src/components/*"],
-      "@/assets/*": ["assets/*"],
-      "@/store/*": ["src/store/*"],
-      "@/api/*": ["src/api/*"],
-      "@/types/*": ["src/types/*"],
-      "expo-module-scripts/*": ["expo-module-scripts/*"]
+      "@/*": [
+        "src/*"
+      ],
+      "@/theme": [
+        "src/theme/theme"
+      ],
+      "@/constants": [
+        "src/constants"
+      ],
+      "@/components/*": [
+        "src/components/*"
+      ],
+      "@/assets/*": [
+        "assets/*"
+      ],
+      "@/store/*": [
+        "src/store/*"
+      ],
+      "@/api/*": [
+        "src/api/*"
+      ],
+      "@/types/*": [
+        "src/types/*"
+      ],
+      "expo-module-scripts/*": [
+        "expo-module-scripts/*"
+      ]
     }
   },
-  "include": ["app", "src", "types", "*.ts", "*.tsx", "index.ts", "index.tsx"],
-  "exclude": ["node_modules", "**/node_modules/**", "**/.pnpm/**"]
+  "include": [
+    "app",
+    "src",
+    "types",
+    "*.ts",
+    "*.tsx",
+    "index.ts",
+    "index.tsx",
+    "nativewind-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/node_modules/**",
+    "**/.pnpm/**"
+  ]
 }

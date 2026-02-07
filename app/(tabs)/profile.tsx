@@ -87,7 +87,7 @@ export default function ProfileScreen() {
               </View>
             </View>
           </View>
-          <TouchableOpacity style={styles.editPill} onPress={() => router.push('/setup')} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.editPill} onPress={() => router.push('/profile/edit')} activeOpacity={0.8}>
             <Ionicons name="pencil" size={14} color={colors.primaryDark} />
             <Text style={styles.editPillText}>Edit profile</Text>
           </TouchableOpacity>
@@ -180,10 +180,22 @@ export default function ProfileScreen() {
           </View>
         </View>
         <View style={styles.actionRow}>
-          <GoldButton title="Edit profile" onPress={() => router.push('/setup')} style={{ flex: 1 }} />
+          <GoldButton title="Edit profile" onPress={() => router.push('/profile/edit')} style={{ flex: 1 }} />
           <GoldButton title="Safety" onPress={() => router.push('/safety')} variant="secondary" style={{ flex: 1 }} />
         </View>
       </PurpleCard>
+
+      <TouchableOpacity style={styles.secondaryButton} onPress={() => router.push('/faq')}>
+        <Ionicons name="help-circle" size={18} color={colors.text.primary} />
+        <Text style={styles.secondaryText}>FAQ</Text>
+        <Ionicons name="chevron-forward" size={18} color={colors.text.secondary} />
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.secondaryButton} onPress={() => router.push('/about')}>
+        <Ionicons name="information-circle" size={18} color={colors.text.primary} />
+        <Text style={styles.secondaryText}>About Us</Text>
+        <Ionicons name="chevron-forward" size={18} color={colors.text.secondary} />
+      </TouchableOpacity>
 
       <TouchableOpacity style={styles.secondaryButton} onPress={() => router.push('/settings')}>
         <Ionicons name="settings" size={18} color={colors.text.primary} />

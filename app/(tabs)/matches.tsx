@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, FlatList, ActivityIndicator, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import UniversalBackground from '@/components/universal/UniversalBackground';
 import GlassCard from '@/components/GlassCard';
 import { colors, spacing, typography, borderRadius } from '@/theme';
@@ -344,12 +345,33 @@ export default function MatchesScreen() {
     return renderGeneric({ item });
   };
 
-  const emptyCopy: Record<InboxTab, string> = {
-    incoming: 'No new likes yet. Keep swiping!',
-    sent: 'No sent likes yet.',
-    views: 'No recent views.',
-    matches: 'No matches yet. Keep swiping!',
+  const emptyCopy: Record<InboxTab, { title: string; subtitle: string; icon: string }> = {
+    incoming: { 
+      title: 'No new likes yet', 
+      subtitle: 'Keep swiping to find your match!', 
+      icon: 'heart-outline' 
+    },
+    sent: { 
+      title: 'No sent likes yet', 
+      subtitle: 'Start swiping to like profiles!', 
+      icon: 'paper-plane-outline' 
+    },
+    views: { 
+      title: 'No recent views', 
+      subtitle: 'Your profile will get noticed soon!', 
+      icon: 'eye-outline' 
+    },
+    matches: { 
+      title: 'No matches yet', 
+      subtitle: "The right connection is just around the corner!", 
+      icon: 'sparkles-outline' 
+    },
   };
+
+  // Get new matches (last 24 hours or first 5)
+  const newMatches = useMemo(() => {
+    return matches.slice(0, 5);
+  }, [matches]);
 
   if (loading) {
     return (
@@ -364,13 +386,56 @@ export default function MatchesScreen() {
     <UniversalBackground scrollable contentContainerStyle={styles.scrollContent} title="Matches">
       {error && <Text style={[styles.subtitle, { color: colors.error }]}>{error}</Text>}
 
+      {/* New Matches Horizontal Section */}
+      {newMatches.length > 0 && (
+        <View style={styles.newMatchesSection}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleRow}>
+              <Ionicons name="sparkles" size={18} color={colors.secondary} />
+              <Text style={styles.sectionTitle}>New Matches</Text>
+            </View>
+            <Text style={styles.sectionCount}>{newMatches.length}</Text>
+          </View>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.newMatchesScroll}
+          >
+            {newMatches.map((match, index) => (
+              <TouchableOpacity
+                key={match.id || index}
+                style={styles.newMatchItem}
+                onPress={() => openDirectChat(match)}
+                activeOpacity={0.8}
+              >
+                <LinearGradient
+                  colors={['#D4AF37', '#B8860B']}
+                  style={styles.newMatchBorder}
+                >
+                  <Image 
+                    source={{ uri: match.photo }} 
+                    style={styles.newMatchAvatar}
+                  />
+                </LinearGradient>
+                <Text style={styles.newMatchName} numberOfLines={1}>
+                  {match.name?.split(' ')[0]}
+                </Text>
+                <View style={styles.newBadge}>
+                  <Text style={styles.newBadgeText}>NEW</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
       <View style={styles.tabsRow}>
         {([
-          { id: 'incoming', label: 'Who liked me' },
-          { id: 'sent', label: 'Who I liked' },
-          { id: 'views', label: 'Who viewed me' },
-          { id: 'matches', label: 'Matches' },
-        ] as { id: InboxTab; label: string }[]).map((t) => {
+          { id: 'incoming', label: 'Who liked me', icon: 'heart' },
+          { id: 'sent', label: 'Who I liked', icon: 'paper-plane' },
+          { id: 'views', label: 'Who viewed me', icon: 'eye' },
+          { id: 'matches', label: 'Matches', icon: 'sparkles' },
+        ] as { id: InboxTab; label: string; icon: string }[]).map((t) => {
           const active = tab === t.id;
           return (
             <TouchableOpacity
@@ -390,6 +455,11 @@ export default function MatchesScreen() {
               onPress={() => setTab(t.id)}
               activeOpacity={0.8}
             >
+              <Ionicons 
+                name={t.icon as any} 
+                size={14} 
+                color={active ? tabPalette[t.id].textActive : tabPalette[t.id].text} 
+              />
               <Text
                 style={[
                   styles.tabText,
@@ -412,7 +482,22 @@ export default function MatchesScreen() {
         scrollEnabled={false}
         ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
         contentContainerStyle={styles.listContent}
-        ListEmptyComponent={<Text style={styles.subtitle}>{emptyCopy[tab]}</Text>}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <View style={styles.emptyIconContainer}>
+              <Ionicons name={emptyCopy[tab].icon as any} size={48} color={colors.primaryLight} />
+            </View>
+            <Text style={styles.emptyTitle}>{emptyCopy[tab].title}</Text>
+            <Text style={styles.emptySubtitle}>{emptyCopy[tab].subtitle}</Text>
+            <TouchableOpacity 
+              style={styles.discoverButton} 
+              onPress={() => router.push('/(tabs)/discover')}
+            >
+              <Text style={styles.discoverButtonText}>Go to Discover</Text>
+              <Ionicons name="arrow-forward" size={16} color={colors.white} />
+            </TouchableOpacity>
+          </View>
+        }
       />
     </UniversalBackground>
   );
@@ -428,6 +513,118 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.text.secondary,
   },
+  // New Matches Section
+  newMatchesSection: {
+    marginBottom: spacing.md,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  sectionTitle: {
+    ...typography.h3,
+    color: colors.text.primary,
+    fontWeight: '700',
+  },
+  sectionCount: {
+    ...typography.body,
+    color: colors.secondary,
+    fontWeight: '700',
+  },
+  newMatchesScroll: {
+    gap: spacing.md,
+    paddingRight: spacing.lg,
+  },
+  newMatchItem: {
+    alignItems: 'center',
+    gap: spacing.xs,
+    position: 'relative',
+  },
+  newMatchBorder: {
+    padding: 3,
+    borderRadius: 40,
+    shadowColor: '#D4AF37',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+  newMatchAvatar: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: colors.glass.dark,
+  },
+  newMatchName: {
+    ...typography.caption,
+    color: colors.text.primary,
+    fontWeight: '600',
+    maxWidth: 74,
+    textAlign: 'center',
+  },
+  newBadge: {
+    position: 'absolute',
+    top: 0,
+    right: -4,
+    backgroundColor: colors.secondary,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+  },
+  newBadgeText: {
+    ...typography.caption,
+    color: colors.primaryDark,
+    fontWeight: '800',
+    fontSize: 9,
+  },
+  // Empty State
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xxl,
+    gap: spacing.md,
+  },
+  emptyIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(139, 92, 246, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  emptyTitle: {
+    ...typography.h2,
+    color: colors.text.primary,
+    fontWeight: '700',
+  },
+  emptySubtitle: {
+    ...typography.body,
+    color: colors.text.secondary,
+    textAlign: 'center',
+  },
+  discoverButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    marginTop: spacing.sm,
+  },
+  discoverButtonText: {
+    ...typography.body,
+    color: colors.white,
+    fontWeight: '600',
+  },
   listContent: {
     paddingVertical: spacing.sm,
   },
@@ -439,13 +636,16 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   tab: {
-    paddingHorizontal: spacing.lg * 1.1,
-    paddingVertical: spacing.sm * 1.1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.glass.light,
-    minHeight: 46,
+    minHeight: 40,
   },
   tabActive: {
     shadowColor: colors.glowGoldStrong,
@@ -491,6 +691,13 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: borderRadius.full,
+    borderWidth: 2,
+    borderColor: 'rgba(212, 175, 55, 0.4)',
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 4,
   },
   statusPill: {
     flexDirection: 'row',

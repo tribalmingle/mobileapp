@@ -4,6 +4,8 @@ export type UserProfile = {
   id: string;
   email?: string;
   name: string;
+  isOnline?: boolean;
+  lastActive?: string;
   age?: number;
   tribe?: string;
   city?: string;
@@ -59,6 +61,8 @@ const mapUser = (raw: any): UserProfile => {
     matchReasons: raw?.matchReasons,
     matchBreakdown: raw?.matchBreakdown,
     photos,
+    isOnline: raw?.isOnline ?? raw?.is_online ?? raw?.online ?? undefined,
+    lastActive: raw?.lastActive || raw?.last_active || raw?.lastSeen || raw?.last_seen || undefined,
   };
 };
 
@@ -74,4 +78,32 @@ export const fetchUserProfile = async (userId: string): Promise<UserProfile | nu
     console.warn('fetchUserProfile failed', error);
   }
   return null;
+};
+
+/** Fetch online status for a specific user */
+export const fetchUserOnlineStatus = async (
+  userId: string
+): Promise<{ isOnline: boolean; lastActive?: string }> => {
+  if (!userId) return { isOnline: false };
+  try {
+    const safeId = encodeURIComponent(userId);
+    const { data } = await apiClient.get<any>(`/users/${safeId}/status`);
+    return {
+      isOnline:
+        data?.isOnline ?? data?.is_online ?? data?.online ?? data?.user?.isOnline ?? false,
+      lastActive:
+        data?.lastActive || data?.last_active || data?.lastSeen || data?.user?.lastActive || undefined,
+    };
+  } catch {
+    // If the endpoint doesn't exist, try fetching the full profile
+    try {
+      const profile = await fetchUserProfile(userId);
+      return {
+        isOnline: profile?.isOnline ?? false,
+        lastActive: profile?.lastActive || undefined,
+      };
+    } catch {
+      return { isOnline: false };
+    }
+  }
 };

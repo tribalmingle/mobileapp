@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path } from 'react-native-svg';
+import StepProgressHeader from '@/components/StepProgressHeader';
 
 interface Work {
   occupation: string;
@@ -41,22 +41,12 @@ const WorkStep: React.FC<Props> = ({ work, onUpdate, onNext, onBack, onSkip, cur
 
   return (
     <View style={styles.container}>
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: `${(currentStep / totalSteps) * 100}%` }]} />
-        </View>
-        <Text style={styles.progressText}>Step {currentStep} of {totalSteps}</Text>
-      </View>
-
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Svg width="24" height="24" viewBox="0 0 24 24">
-            <Path d="M15 18L9 12L15 6" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
-        </TouchableOpacity>
-        <Text style={styles.title}>Work</Text>
-        <TouchableOpacity onPress={onSkip}><Text style={styles.skipText}>Skip</Text></TouchableOpacity>
-      </View>
+      <StepProgressHeader
+        currentStep={currentStep}
+        title="Work"
+        onBack={onBack}
+        onSkip={onSkip}
+      />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         <View style={styles.card}>

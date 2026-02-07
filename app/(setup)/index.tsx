@@ -23,6 +23,7 @@ import FaithStep from './FaithStep';
 import InterestsStep from './InterestsStep';
 import BioStep from './BioStep';
 import LookingForStep from './LookingForStep';
+import StepProgressHeader from '@/components/StepProgressHeader';
 
 const { width, height } = Dimensions.get('window');
 
@@ -498,7 +499,7 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
       }
 
       updateUser({ profileCompletion: 100 });
-      setBusyMessage('Checking verification status...');
+      setBusyMessage('Verifying your details...');
 
       await pollVerificationStatus();
       setCurrentStep(totalSteps);
@@ -546,7 +547,7 @@ export default function ProfileSetupWizard({ initialStep = 1 }: ProfileSetupWiza
       case 7:
         if (data.interests.length < 3) return 'Please select at least 3 interests.';
         if (!data.loveLanguage.length) return 'Please select at least one love language.';
-        if (data.loveLanguage.length > 2) return 'Please select up to 2 love languages.';
+        if (data.loveLanguage.length > 3) return 'Please select up to 3 love languages.';
         return null;
       case 8:
         return data.bio ? null : 'Please add a short bio.';
@@ -892,24 +893,12 @@ const ReviewStep: React.FC<ReviewStepProps> = ({ onNext, onBack, onSkip, current
 
   return (
     <View style={styles.reviewContainer}>
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: `${(currentStep / totalSteps) * 100}%` }]} />
-        </View>
-        <Text style={styles.progressText}>Step {currentStep} of {totalSteps}</Text>
-      </View>
-
-      <View style={styles.headerRow}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Svg width="24" height="24" viewBox="0 0 24 24">
-            <Path d="M15 18L9 12L15 6" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
-        </TouchableOpacity>
-        <Text style={styles.reviewTitle}>Review & Submit</Text>
-        <TouchableOpacity onPress={onSkip}>
-          <Text style={styles.skipText}>Skip</Text>
-        </TouchableOpacity>
-      </View>
+      <StepProgressHeader
+        currentStep={currentStep}
+        title="Review & Submit"
+        onBack={onBack}
+        onSkip={onSkip}
+      />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.reviewContent}>
         {rows.map((row) => (

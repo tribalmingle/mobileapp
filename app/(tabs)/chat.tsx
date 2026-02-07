@@ -1,23 +1,27 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, RefreshControl, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, RefreshControl, FlatList, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import UniversalBackground from '@/components/universal/UniversalBackground';
 import GlassCard from '@/components/GlassCard';
 import { colors, spacing, typography, borderRadius } from '@/theme';
-import { fetchThreads, Thread } from '@/api/messaging';
+import { fetchThreads, Thread, markThreadRead } from '@/api/messaging';
 import { useNotificationStore } from '@/store/notificationStore';
+import { useChatStore } from '@/store/chatStore';
 
 const isExpoGo =
   Constants.appOwnership === 'expo' ||
   (Constants as any).executionEnvironment === 'storeClient';
 
-const ConversationRow = ({ thread, onPress }: { thread: Thread; onPress: () => void }) => {
+const ConversationRow = ({ thread, onPress, onMarkRead }: { thread: Thread; onPress: () => void; onMarkRead: () => void }) => {
   const participant = thread.participants?.[0];
   const name = participant?.name || 'Conversation';
   const photo = participant?.photo;
-  const lastMessage = thread.lastMessage?.content || 'Say hello';
+  // Show actual last message content; only fall back to "Say hello" when there's no lastMessage at all
+  const lastMessage = thread.lastMessage
+    ? (thread.lastMessage.content || 'Sent a message')
+    : 'Say hello 👋';
   const timeLabel = (() => {
     if (!thread.lastMessage?.createdAt) return '';
     const diffMs = Date.now() - new Date(thread.lastMessage.createdAt).getTime();
@@ -30,8 +34,22 @@ const ConversationRow = ({ thread, onPress }: { thread: Thread; onPress: () => v
     return `${diffDays}d ago`;
   })();
 
+  // Use chatStore's threadCounts for accurate unread state (respects locally-read threads)
+  const storeUnread = useChatStore((s) => s.threadCounts[thread.id] ?? thread.unreadCount ?? 0);
+
   return (
-    <TouchableOpacity activeOpacity={0.85} onPress={onPress}>
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={onPress}
+      onLongPress={() => {
+        if (storeUnread > 0) {
+          Alert.alert('Mark as Read', 'Mark this conversation as read?', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Mark Read', onPress: onMarkRead },
+          ]);
+        }
+      }}
+    >
       <GlassCard style={styles.card} intensity={25} padding={spacing.md}>
         <View style={styles.row}>
           {photo ? <Image source={{ uri: photo }} style={styles.avatar} /> : <View style={[styles.avatar, styles.avatarPlaceholder]} />}
@@ -40,12 +58,18 @@ const ConversationRow = ({ thread, onPress }: { thread: Thread; onPress: () => v
               <Text style={styles.name}>{name}</Text>
               <Text style={styles.time}>{timeLabel}</Text>
             </View>
-            <Text style={styles.message} numberOfLines={1}>{lastMessage}</Text>
-          </View>
-          {(thread.unreadCount ?? 0) > 0 ? (
-            <View style={styles.unreadBadge}>
-              <Text style={styles.unreadText}>{thread.unreadCount}</Text>
+            <View style={styles.messageRow}>
+              <Text style={[styles.message, storeUnread > 0 && styles.messageUnread]} numberOfLines={1}>{lastMessage}</Text>
+              {/* Read receipt indicator for last sent message */}
+              {thread.lastMessage?.status === 'read' && (
+                <Ionicons name="checkmark-done" size={14} color={colors.secondary} style={{ marginLeft: 4 }} />
+              )}
             </View>
+          </View>
+          {storeUnread > 0 ? (
+            <TouchableOpacity onPress={onMarkRead} activeOpacity={0.7} style={styles.unreadBadge}>
+              <Text style={styles.unreadText}>{storeUnread}</Text>
+            </TouchableOpacity>
           ) : null}
         </View>
       </GlassCard>
@@ -61,19 +85,28 @@ export default function ChatScreen() {
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; tone?: 'info' | 'success' | 'error' } | null>(null);
   const addNotification = useNotificationStore((s) => s.addNotification);
+  const syncFromThreads = useChatStore((s) => s.syncFromThreads);
+  const markThreadReadInStore = useChatStore((s) => s.markThreadRead);
+
+  const handleMarkRead = useCallback((threadId: string) => {
+    markThreadRead(threadId).catch(() => {});
+    markThreadReadInStore(threadId);
+  }, [markThreadReadInStore]);
 
   const loadThreads = useCallback(async () => {
     setError(null);
     try {
       const data = await fetchThreads();
       setThreads(data);
+      // Sync thread unread counts with the store, respecting locally-read threads
+      syncFromThreads(data.map((t) => ({ id: t.id, unreadCount: t.unreadCount || 0 })));
     } catch (err: any) {
       setError(err?.message || 'Could not load conversations');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [syncFromThreads]);
 
   useEffect(() => {
     loadThreads();
@@ -137,6 +170,7 @@ export default function ChatScreen() {
           },
         })
       }
+      onMarkRead={() => handleMarkRead(item.id)}
     />
   );
 
@@ -224,6 +258,13 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: borderRadius.full,
     backgroundColor: colors.glass.dark,
+    borderWidth: 2,
+    borderColor: 'rgba(212, 175, 55, 0.4)',
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
   avatarPlaceholder: {
     alignItems: 'center',
@@ -244,6 +285,15 @@ const styles = StyleSheet.create({
   message: {
     ...typography.body,
     color: colors.text.secondary,
+    flex: 1,
+  },
+  messageUnread: {
+    color: colors.text.primary,
+    fontWeight: '600',
+  },
+  messageRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
   },
   rowBetween: {
     flexDirection: 'row',

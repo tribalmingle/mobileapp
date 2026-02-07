@@ -40,11 +40,13 @@ apiClient.interceptors.response.use(
     return response;
   },
   async (error) => {
-    console.error('[API] Request failed:', {
+    const status = error.response?.status;
+    // Use console.warn for expected client errors (404, 403) to avoid LogBox red screen
+    const logFn = status && status >= 400 && status < 500 ? console.warn : console.error;
+    logFn('[API] Request failed:', {
       url: error.config?.url,
-      status: error.response?.status,
+      status,
       message: error.message,
-      data: error.response?.data
     });
     // Do not auto-clear tokens on 401; we keep sessions until explicit logout
     return Promise.reject(error);

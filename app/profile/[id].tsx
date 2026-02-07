@@ -17,9 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import { fetchUserProfile } from '@/api/users';
 import { sendSwipe } from '@/api/discovery';
-import GlassCard from '@/components/GlassCard';
-import GoldButton from '@/components/universal/GoldButton';
-import { colors, spacing, typography, borderRadius, gradients } from '@/theme';
+import { spacing } from '@/theme';
 import { User } from '@/types/user';
 import { inferOriginFromTribe } from '@/utils/tribeOrigin';
 import { useAuthStore } from '@/store/authStore';
@@ -70,64 +68,83 @@ export default function ProfileDetailScreen() {
   const params = useLocalSearchParams();
   const rawProfile = useMemo(() => parseProfileParam(params.profile), [params.profile]);
 
+  // Always get the ID first - this is the source of truth
+  const profileId = useMemo(() => {
+    return params.id?.toString() || rawProfile?.id || '';
+  }, [params.id, rawProfile?.id]);
+
   const initialProfile: ProfileDetail | null = useMemo(() => {
     if (rawProfile) {
       return {
         ...rawProfile,
-        id: rawProfile.id || params.id?.toString() || '',
+        id: profileId,
         name: rawProfile.name || 'Unknown',
         photos: rawProfile.photos && rawProfile.photos.length > 0 ? rawProfile.photos : [],
       };
     }
     return null;
-  }, [rawProfile, params.id]);
+  }, [rawProfile, profileId]);
 
   const [profile, setProfile] = useState<ProfileDetail | null>(initialProfile);
   const [photoIndex, setPhotoIndex] = useState(0);
   const [liked, setLiked] = useState(false);
   const [superLiked, setSuperLiked] = useState(false);
-  const [isLoading, setIsLoading] = useState(!initialProfile);
+  const [passed, setPassed] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const galleryRef = useRef<ScrollView>(null);
   const [whyOpen, setWhyOpen] = useState(false);
   const currentUser = useAuthStore((state) => state.user);
 
+  // Unified profile loading - ALWAYS fetch from API for fresh data
   useEffect(() => {
-    if (!initialProfile) return;
-    setProfile((prev) => {
-      if (prev?.id === initialProfile.id) return prev;
-      return initialProfile;
-    });
-  }, [initialProfile]);
+    const loadProfile = async () => {
+      // No ID means we can't load anything
+      if (!profileId) {
+        setError('Profile ID is missing');
+        setIsLoading(false);
+        return;
+      }
 
-  useEffect(() => {
-    const load = async () => {
-      if (!params.id) return;
       setIsLoading(true);
       setError(null);
+
+      // If we have initial data from params, use it immediately for faster UI
+      if (initialProfile) {
+        setProfile(initialProfile);
+      }
+
       try {
-        const loaded = await fetchUserProfile(String(params.id));
+        const loaded = await fetchUserProfile(profileId);
         if (loaded) {
+          // Merge with existing data, preferring fresh API data
           setProfile((prev) => ({
             ...(prev || {}),
             ...loaded,
-            id: loaded.id || String(params.id),
-            name: loaded.name || 'Unknown',
-            photos: loaded.photos && loaded.photos.length > 0 ? loaded.photos : (prev?.photos || []),
+            id: loaded.id || profileId,
+            name: loaded.name || prev?.name || 'Unknown',
+            photos: loaded.photos && loaded.photos.length > 0 
+              ? loaded.photos 
+              : (prev?.photos || []),
             matchReasons: loaded.matchReasons ?? prev?.matchReasons,
             matchBreakdown: loaded.matchBreakdown ?? prev?.matchBreakdown,
           }));
-        } else {
-          setError('Profile not found');
+          setError(null);
         }
+        // If API returned null but we have initial data, just use that silently
       } catch (err: any) {
-        setError(err?.message || 'Failed to load profile');
+        // Silently handle - we use fallback data from navigation params
+        // Only show error if we have absolutely no data at all
+        if (!initialProfile && !profile) {
+          setError(err?.message || 'Failed to load profile');
+        }
       } finally {
         setIsLoading(false);
       }
     };
-    load();
-  }, [params.id]);
+
+    loadProfile();
+  }, [profileId]); // Only depend on profileId, not initialProfile
 
   const handleScroll = (event: any) => {
     const x = event.nativeEvent.contentOffset.x;
@@ -142,8 +159,25 @@ export default function ProfileDetailScreen() {
     galleryRef.current?.scrollTo({ x: idx * width, animated: true });
   };
 
-  const onAction = (label: string) => {
-    Alert.alert(label, `${label} action coming soon.`);
+  const onPass = async () => {
+    if (passed || liked || superLiked) {
+      Alert.alert('Already acted', 'You have already responded to this profile.');
+      return;
+    }
+    if (!profile?.id) return;
+
+    try {
+      await sendSwipe(profile.id, 'pass');
+      setPassed(true);
+      // Navigate back after passing
+      if (navigation?.canGoBack?.()) {
+        navigation.goBack();
+      } else {
+        router.replace('/search');
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'Failed to pass');
+    }
   };
 
   const handleBack = () => {
@@ -168,8 +202,8 @@ export default function ProfileDetailScreen() {
   };
 
   const onLike = async () => {
-    if (liked || superLiked) {
-      Alert.alert('Already sent', 'You have already liked or super liked this member.');
+    if (liked || superLiked || passed) {
+      Alert.alert('Already acted', 'You have already responded to this profile.');
       return;
     }
     if (!profile?.id) return;
@@ -184,8 +218,8 @@ export default function ProfileDetailScreen() {
   };
 
   const onSuperLike = async () => {
-    if (liked || superLiked) {
-      Alert.alert('Already sent', 'You have already liked or super liked this member.');
+    if (liked || superLiked || passed) {
+      Alert.alert('Already acted', 'You have already responded to this profile.');
       return;
     }
     if (!profile?.id) return;
@@ -199,28 +233,9 @@ export default function ProfileDetailScreen() {
     }
   };
 
-  const compatibility = profile?.matchPercent ?? profile?.compatibility ?? 90;
-  const matchWhy = profile?.matchReasons?.length
-    ? profile.matchReasons
-    : profile?.matchBreakdown?.map((item) => item.label) || [];
-  const verification = useMemo(() => {
-    const hasId = Boolean(
-      (profile as any)?.idVerificationUrl ||
-        (profile as any)?.verificationIdUrl ||
-        (profile as any)?.idVerification?.url
-    );
-    const hasSelfie = Boolean(
-      (profile as any)?.selfiePhoto ||
-        (profile as any)?.verificationSelfie
-    );
-    const isVerified = Boolean(
-      (profile as any)?.isVerified ||
-        (profile as any)?.verified ||
-        (profile as any)?.verificationStatus === 'verified' ||
-        (hasId && hasSelfie)
-    );
-    return { isVerified, hasId, hasSelfie };
-  }, [profile]);
+  // Total possible matching criteria for compatibility computation
+  const TOTAL_CRITERIA = 8; // tribe, city, country, origin, religion, love language, looking for, interests
+
   const sharedRows = useMemo(() => {
     if (!profile || !currentUser) return [] as Array<{ label: string; you: string; them: string }>;
     const normalize = (value?: string | null) => (value || '').trim().toLowerCase();
@@ -266,39 +281,112 @@ export default function ProfileDetailScreen() {
     return matches;
   }, [profile, currentUser]);
 
-  if (isLoading) {
+  const compatibility = profile?.matchPercent ?? profile?.compatibility ?? Math.round((sharedRows.length / TOTAL_CRITERIA) * 100);
+  const matchWhy = sharedRows.length > 0
+    ? sharedRows.map((row) => row.label)
+    : profile?.matchReasons?.length
+      ? profile.matchReasons
+      : profile?.matchBreakdown?.map((item) => item.label) || [];
+  const verification = useMemo(() => {
+    const hasId = Boolean(
+      (profile as any)?.idVerificationUrl ||
+        (profile as any)?.verificationIdUrl ||
+        (profile as any)?.idVerification?.url
+    );
+    const hasSelfie = Boolean(
+      (profile as any)?.selfiePhoto ||
+        (profile as any)?.verificationSelfie
+    );
+    const isVerified = Boolean(
+      (profile as any)?.isVerified ||
+        (profile as any)?.verified ||
+        (profile as any)?.verificationStatus === 'verified' ||
+        (hasId && hasSelfie)
+    );
+    return { isVerified, hasId, hasSelfie };
+  }, [profile]);
+
+  // Retry function for error state
+  const handleRetry = () => {
+    if (!profileId) return;
+    setIsLoading(true);
+    setError(null);
+    fetchUserProfile(profileId)
+      .then((loaded) => {
+        if (loaded) {
+          setProfile({
+            ...loaded,
+            id: loaded.id || profileId,
+            name: loaded.name || 'Unknown',
+            photos: loaded.photos && loaded.photos.length > 0 ? loaded.photos : [],
+          });
+        } else {
+          setError('Profile not found');
+        }
+      })
+      .catch((err) => {
+        setError(err?.message || 'Failed to load profile');
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  };
+
+  if (isLoading && !profile) {
     return (
       <LinearGradient
-        colors={gradients.hero.colors}
-        start={gradients.hero.start}
-        end={gradients.hero.end}
+        colors={['#0F0520', '#1A0B2E', '#261245']}
         style={styles.screen}
       >
         <SafeAreaView style={[styles.safeArea, styles.centered]}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color="#D4AF37" />
           <Text style={styles.loadingText}>Loading profile...</Text>
         </SafeAreaView>
       </LinearGradient>
     );
   }
 
-  if (error || !profile) {
+  if (error && !profile) {
     return (
       <LinearGradient
-        colors={gradients.hero.colors}
-        start={gradients.hero.start}
-        end={gradients.hero.end}
+        colors={['#0F0520', '#1A0B2E', '#261245']}
         style={styles.screen}
       >
         <SafeAreaView style={[styles.safeArea, styles.centered]}>
-          <Ionicons name="alert-circle" size={48} color={colors.error} />
+          <View style={styles.errorIconContainer}>
+            <Ionicons name="person-circle-outline" size={64} color="rgba(255,255,255,0.4)" />
+          </View>
+          <Text style={styles.errorTitle}>Could Not Load Profile</Text>
+          <Text style={styles.errorText}>{error}</Text>
+          <View style={styles.errorActions}>
+            <TouchableOpacity onPress={handleRetry} style={styles.errorRetryBtn}>
+              <LinearGradient colors={['#D4AF37', '#B8860B']} style={styles.errorRetryGradient}>
+                <Text style={styles.errorRetryText}>Try Again</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.errorBackLink} onPress={() => router.back()}>
+              <Text style={styles.errorBackText}>Go Back</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <LinearGradient
+        colors={['#0F0520', '#1A0B2E', '#261245']}
+        style={styles.screen}
+      >
+        <SafeAreaView style={[styles.safeArea, styles.centered]}>
+          <Ionicons name="alert-circle" size={48} color="#EF4444" />
           <Text style={styles.errorTitle}>Profile Not Available</Text>
-          <Text style={styles.errorText}>{error || 'This profile could not be loaded.'}</Text>
-          <GoldButton
-            title="Go Back"
-            onPress={() => router.back()}
-            style={styles.errorButton}
-          />
+          <TouchableOpacity onPress={() => router.back()} style={styles.errorRetryBtn}>
+            <LinearGradient colors={['#D4AF37', '#B8860B']} style={styles.errorRetryGradient}>
+              <Text style={styles.errorRetryText}>Go Back</Text>
+            </LinearGradient>
+          </TouchableOpacity>
         </SafeAreaView>
       </LinearGradient>
     );
@@ -306,27 +394,29 @@ export default function ProfileDetailScreen() {
 
   return (
     <LinearGradient
-      colors={gradients.hero.colors}
-      start={gradients.hero.start}
-      end={gradients.hero.end}
+      colors={['#0F0520', '#1A0B2E', '#261245']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
       style={styles.screen}
     >
       <SafeAreaView style={styles.safeArea}>
         <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
+          {/* Floating Back + Actions */}
           <View style={styles.headerRow}>
             <TouchableOpacity style={styles.iconButton} onPress={handleBack}>
-              <Ionicons name="arrow-back" size={22} color={colors.text.primary} />
+              <Ionicons name="arrow-back" size={22} color="#FFF" />
             </TouchableOpacity>
             <View style={styles.headerActions}>
               <TouchableOpacity style={styles.iconButton} onPress={() => onAction('Share profile')}>
-                <Ionicons name="share-social" size={20} color={colors.text.primary} />
+                <Ionicons name="share-social" size={20} color="#FFF" />
               </TouchableOpacity>
               <TouchableOpacity style={styles.iconButton} onPress={() => onAction('Report')}>
-                <Ionicons name="flag" size={20} color={colors.text.primary} />
+                <Ionicons name="flag" size={20} color="#FFF" />
               </TouchableOpacity>
             </View>
           </View>
 
+          {/* Photo Gallery */}
           <View style={styles.gallery}>
             <ScrollView
               ref={galleryRef}
@@ -339,184 +429,227 @@ export default function ProfileDetailScreen() {
                 <View key={`${uri}-${idx}`} style={styles.photoSlide}>
                   <Image source={{ uri }} style={styles.photo} />
                   <LinearGradient
-                    colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.45)']}
+                    colors={['rgba(15,5,32,0)', 'rgba(15,5,32,0.85)']}
                     style={styles.photoOverlay}
                   />
                 </View>
               ))}
             </ScrollView>
+            {/* Photo indicators */}
             <View style={styles.indicators}>
               {profile.photos.map((_, idx) => (
                 <View key={idx} style={[styles.indicator, idx === photoIndex && styles.indicatorActive]} />
               ))}
             </View>
 
-            {profile.photos.length > 1 ? (
-              <View style={styles.thumbnailRow}>
-                {profile.photos.map((uri, idx) => (
-                  <TouchableOpacity key={`${uri}-${idx}`} onPress={() => jumpToPhoto(idx)} activeOpacity={0.85}>
-                    <Image
-                      source={{ uri }}
-                      style={[styles.thumbnail, idx === photoIndex && styles.thumbnailActive]}
-                    />
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ) : null}
-          </View>
-
-          <View style={styles.body}>
-            <GlassCard style={styles.infoCard} intensity={30} padding={spacing.lg}>
-              <View style={styles.titleRow}>
-                <View style={styles.nameBlock}>
-                  <Text style={styles.nameText} numberOfLines={1}>
-                    {profile.name}
-                    {profile.age ? `, ${profile.age}` : ''}
-                  </Text>
-                  <View style={styles.metaRow}>
-                    {profile.tribe && (
-                      <View style={styles.pill}>
-                        <Ionicons name="people" size={14} color={colors.primaryDark} />
-                        <Text style={styles.pillText}>{profile.tribe} tribe</Text>
-                      </View>
-                    )}
-                    {(profile.city || profile.country) && (
-                      <View style={styles.pill}>
-                        <Ionicons name="location" size={14} color={colors.primaryDark} />
-                        <Text style={styles.pillText}>
-                          {profile.city || 'City'}, {profile.country || 'Country'}
-                        </Text>
-                      </View>
-                    )}
+            {/* Name overlay on photo */}
+            <View style={styles.photoNameOverlay}>
+              <View style={styles.nameRow}>
+                <Text style={styles.heroName}>
+                  {profile.name?.split(' ')[0] || profile.name}
+                </Text>
+                {profile.age ? <Text style={styles.heroAge}>, {profile.age}</Text> : null}
+                {verification.isVerified && (
+                  <View style={styles.verifiedBadgeInline}>
+                    <View style={{ backgroundColor: '#fff', borderRadius: 14, padding: 1.5, shadowColor: '#1877F2', shadowOpacity: 0.6, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 4 }}>
+                      <Ionicons name="checkmark-circle" size={24} color="#1877F2" />
+                    </View>
                   </View>
-                </View>
-                <View style={styles.badgeStack}>
-                  <View
-                    style={[
-                      styles.badge,
-                      verification.isVerified ? styles.badgeVerified : styles.badgeUnverified,
-                    ]}
-                  >
-                    <Ionicons
-                      name={verification.isVerified ? 'shield-checkmark' : 'alert-circle'}
-                      size={16}
-                      color={verification.isVerified ? colors.success : colors.warning}
-                    />
-                    <Text
-                      style={[
-                        styles.badgeText,
-                        verification.isVerified ? styles.badgeTextVerified : styles.badgeTextUnverified,
-                      ]}
-                    >
-                      {verification.isVerified ? 'Verified user' : 'Unverified user'}
-                    </Text>
-                  </View>
-                  <View style={styles.badge}>
-                    <Ionicons name="sparkles" size={16} color={colors.primaryDark} />
-                    <Text style={styles.badgeText}>{compatibility}% match</Text>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.whyButton}
-                    onPress={() => {
-                      setWhyOpen(true);
-                    }}
-                  >
-                    <Text style={styles.whyButtonText}>See why</Text>
-                    <Ionicons name="chevron-forward" size={12} color={colors.primaryDark} />
-                  </TouchableOpacity>
-                </View>
+                )}
               </View>
-
-              <View style={styles.sectionRow}>
-                <View style={styles.statBox}>
-                  <Text style={styles.statValue}>{profile.relationshipGoals?.length || 2}</Text>
-                  <Text style={styles.statLabel}>Intent signals</Text>
-                </View>
-                <View style={styles.statBox}>
-                  <Text style={styles.statValue}>{profile.interests?.length || 4}</Text>
-                  <Text style={styles.statLabel}>Shared interests</Text>
-                </View>
-                <View style={styles.statBox}>
-                  <Text style={styles.statValue}>Safe</Text>
-                  <Text style={styles.statLabel}>Trust rating</Text>
-                </View>
-              </View>
-
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>About</Text>
-                <Text style={styles.bodyText}>
-                  {profile.bio || 'Share a short introduction about faith, family, and what you are seeking.'}
+              <View style={styles.locationRow}>
+                <Ionicons name="location" size={14} color="#D4AF37" />
+                <Text style={styles.heroLocation}>
+                  {[profile.tribe, profile.city, profile.country].filter(Boolean).join(' · ')}
                 </Text>
               </View>
+            </View>
+          </View>
 
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Details</Text>
-                <DetailRow icon="briefcase" label="Work" value={profile.occupation || 'Add your role'} />
-                <DetailRow icon="school" label="Education" value={profile.education || 'Add education'} />
-                <DetailRow
-                  icon="heart"
-                  label="Looking for"
-                  value={profile.relationshipGoals?.join(', ') || 'Meaningful connection'}
-                />
-                <DetailRow
-                  icon="chatbubbles"
-                  label="Love language"
-                  value={profile.loveLanguage || 'Not shared yet'}
-                />
-              </View>
+          {/* Thumbnails */}
+          {profile.photos.length > 1 && (
+            <View style={styles.thumbnailRow}>
+              {profile.photos.map((uri, idx) => (
+                <TouchableOpacity key={`thumb-${idx}`} onPress={() => jumpToPhoto(idx)} activeOpacity={0.85}>
+                  <Image
+                    source={{ uri }}
+                    style={[styles.thumbnail, idx === photoIndex && styles.thumbnailActive]}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
-              {profile.interests && profile.interests.length > 0 && (
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Interests</Text>
-                  <View style={styles.chipRow}>
-                    {profile.interests.map((interest) => (
-                      <View key={interest} style={styles.chip}>
-                        <Text style={styles.chipText}>{interest}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
+          <View style={styles.body}>
+            {/* Verification Banner */}
+            <LinearGradient
+              colors={verification.isVerified
+                ? ['rgba(34,197,94,0.15)', 'rgba(34,197,94,0.05)']
+                : ['rgba(251,191,36,0.15)', 'rgba(251,191,36,0.05)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.verificationBanner, verification.isVerified ? styles.verificationBannerVerified : styles.verificationBannerUnverified]}
+            >
+              <Ionicons
+                name={verification.isVerified ? 'shield-checkmark' : 'alert-circle'}
+                size={20}
+                color={verification.isVerified ? '#22C55E' : '#FBBF24'}
+              />
+              <Text style={[styles.verificationBannerText, { color: verification.isVerified ? '#22C55E' : '#FBBF24' }]}>
+                {verification.isVerified ? 'Identity Verified' : 'Not Yet Verified'}
+              </Text>
+              {!verification.isVerified && (
+                <View style={styles.verificationWarningDot} />
               )}
-            </GlassCard>
+            </LinearGradient>
 
-            <View style={styles.ctaCard}>
-              <Text style={styles.sectionTitle}>Reach out</Text>
-              <Text style={styles.bodyText}>Send a like or start a conversation to make the first move.</Text>
-              <View style={styles.ctaRow}>
-                <TouchableOpacity style={[styles.actionButton, styles.passButton]} onPress={() => onAction('Pass')}>
-                  <Ionicons name="close" size={24} color={colors.white} />
-                  <Text style={styles.actionText}>Pass</Text>
+            {/* Compatibility Card */}
+            <LinearGradient
+              colors={['rgba(124,58,237,0.2)', 'rgba(212,175,55,0.12)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.compatCard}
+            >
+              <View style={styles.compatHeader}>
+                <View style={styles.compatScoreCircle}>
+                  <Text style={styles.compatScoreText}>{compatibility}%</Text>
+                </View>
+                <View style={styles.compatMeta}>
+                  <Text style={styles.compatTitle}>Compatible</Text>
+                  {matchWhy.length > 0 && (
+                    <Text style={styles.compatDesc} numberOfLines={2}>
+                      {matchWhy.slice(0, 2).join(' and ')}
+                    </Text>
+                  )}
+                </View>
+              </View>
+              <TouchableOpacity
+                style={styles.compatButton}
+                onPress={() => setWhyOpen(true)}
+              >
+                <Text style={styles.compatButtonText}>See why you match</Text>
+                <Ionicons name="chevron-forward" size={14} color="#D4AF37" />
+              </TouchableOpacity>
+            </LinearGradient>
+
+            {/* Quick Stats Row */}
+            <View style={styles.statsRow}>
+              <View style={styles.statCard}>
+                <LinearGradient colors={['rgba(124,58,237,0.18)', 'rgba(124,58,237,0.06)']} style={styles.statGradient}>
+                  <Text style={styles.statValue}>{profile.relationshipGoals?.length || 2}</Text>
+                  <Text style={styles.statLabel}>Intent{'\n'}Signals</Text>
+                </LinearGradient>
+              </View>
+              <View style={styles.statCard}>
+                <LinearGradient colors={['rgba(212,175,55,0.18)', 'rgba(212,175,55,0.06)']} style={styles.statGradient}>
+                  <Text style={styles.statValue}>{profile.interests?.length || 0}</Text>
+                  <Text style={styles.statLabel}>Shared{'\n'}Interests</Text>
+                </LinearGradient>
+              </View>
+              <View style={styles.statCard}>
+                <LinearGradient colors={['rgba(34,197,94,0.18)', 'rgba(34,197,94,0.06)']} style={styles.statGradient}>
+                  <Text style={styles.statValue}>Safe</Text>
+                  <Text style={styles.statLabel}>Trust{'\n'}Rating</Text>
+                </LinearGradient>
+              </View>
+            </View>
+
+            {/* About Section */}
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Ionicons name="person" size={18} color="#D4AF37" />
+                <Text style={styles.cardTitle}>About</Text>
+              </View>
+              <Text style={styles.aboutText}>
+                {profile.bio || 'This user hasn\'t added a bio yet.'}
+              </Text>
+            </View>
+
+            {/* Details Section */}
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Ionicons name="information-circle" size={18} color="#D4AF37" />
+                <Text style={styles.cardTitle}>Details</Text>
+              </View>
+              <DetailRow icon="briefcase" label="Work" value={profile.occupation} />
+              <DetailRow icon="school" label="Education" value={profile.education} />
+              <DetailRow icon="heart" label="Looking for" value={profile.relationshipGoals?.join(', ') || profile.lookingFor} />
+              <DetailRow icon="chatbubbles" label="Love language" value={profile.loveLanguage} />
+              {profile.religion && <DetailRow icon="sparkles" label="Faith" value={profile.religion} />}
+              {profile.maritalStatus && <DetailRow icon="people" label="Status" value={profile.maritalStatus} />}
+            </View>
+
+            {/* Interests */}
+            {profile.interests && profile.interests.length > 0 && (
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <Ionicons name="pricetag" size={18} color="#D4AF37" />
+                  <Text style={styles.cardTitle}>Interests</Text>
+                </View>
+                <View style={styles.chipRow}>
+                  {profile.interests.map((interest) => (
+                    <LinearGradient
+                      key={interest}
+                      colors={['rgba(124,58,237,0.2)', 'rgba(167,139,250,0.12)']}
+                      style={styles.chip}
+                    >
+                      <Text style={styles.chipText}>{interest}</Text>
+                    </LinearGradient>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* Action Buttons */}
+            <View style={styles.actionCard}>
+              <View style={styles.actionRow}>
+                <TouchableOpacity style={[styles.passBtn, passed && styles.actionDisabled]} onPress={onPass} disabled={passed}>
+                  <Ionicons name="close" size={28} color="rgba(255,255,255,0.7)" />
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.actionButton, styles.superLikeButton, (liked || superLiked) && styles.actionDisabled]}
+                  style={[styles.superLikeBtn, (liked || superLiked || passed) && styles.actionDisabled]}
                   onPress={onSuperLike}
-                  disabled={liked || superLiked}
+                  disabled={liked || superLiked || passed}
                 >
-                  <Ionicons name="star" size={20} color={colors.primaryDark} />
-                  <Text style={[styles.actionText, styles.darkText]}>{superLiked ? 'Super liked' : 'Super like'}</Text>
+                  <LinearGradient colors={['#D4AF37', '#B8860B']} style={styles.actionBtnGradient}>
+                    <Ionicons name="star" size={26} color="#FFF" />
+                  </LinearGradient>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.actionButton, styles.likeButton, (liked || superLiked) && styles.actionDisabled]}
+                  style={[styles.likeBtn, (liked || superLiked || passed) && styles.actionDisabled]}
                   onPress={onLike}
-                  disabled={liked || superLiked}
+                  disabled={liked || superLiked || passed}
                 >
-                  <Ionicons name="heart" size={22} color={colors.white} />
-                  <Text style={styles.actionText}>{liked ? 'Liked' : 'Like'}</Text>
+                  <LinearGradient colors={['#7C3AED', '#5B2E91']} style={styles.actionBtnGradient}>
+                    <Ionicons name="heart" size={26} color="#FFF" />
+                  </LinearGradient>
                 </TouchableOpacity>
               </View>
-              <GoldButton title="Send a message" onPress={goToChat} style={styles.messageButton} />
+
+              <TouchableOpacity style={styles.messageBtn} onPress={goToChat} activeOpacity={0.85}>
+                <LinearGradient
+                  colors={['#D4AF37', '#B8860B']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.messageBtnGradient}
+                >
+                  <Ionicons name="chatbubble" size={18} color="#FFF" />
+                  <Text style={styles.messageBtnText}>Send a Message</Text>
+                </LinearGradient>
+              </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
       </SafeAreaView>
 
+      {/* Why Match Modal */}
       <Modal transparent visible={whyOpen} animationType="fade" onRequestClose={() => setWhyOpen(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Why this match</Text>
               <TouchableOpacity onPress={() => setWhyOpen(false)}>
-                <Ionicons name="close" size={20} color={colors.text.primary} />
+                <Ionicons name="close" size={20} color="#FFF" />
               </TouchableOpacity>
             </View>
             {sharedRows.length === 0 ? (
@@ -552,17 +685,20 @@ const DetailRow = ({
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value?: string;
-}) => (
-  <View style={styles.detailRow}>
-    <View style={styles.detailIcon}>
-      <Ionicons name={icon} size={16} color={colors.primaryDark} />
+}) => {
+  if (!value) return null;
+  return (
+    <View style={styles.detailRow}>
+      <View style={styles.detailIcon}>
+        <Ionicons name={icon} size={15} color="#D4AF37" />
+      </View>
+      <View style={styles.detailCopy}>
+        <Text style={styles.detailLabel}>{label}</Text>
+        <Text style={styles.detailValue}>{value}</Text>
+      </View>
     </View>
-    <View style={styles.detailCopy}>
-      <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue}>{value || 'Not provided'}</Text>
-    </View>
-  </View>
-);
+  );
+};
 
 const styles = StyleSheet.create({
   screen: {
@@ -578,25 +714,65 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: spacing.md,
-    ...typography.body,
-    color: colors.text.secondary,
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.6)',
   },
   errorTitle: {
     marginTop: spacing.lg,
-    ...typography.h2,
-    color: colors.text.primary,
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#FFF',
     textAlign: 'center',
   },
   errorText: {
     marginTop: spacing.sm,
-    ...typography.body,
-    color: colors.text.secondary,
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.6)',
     textAlign: 'center',
   },
+  errorIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(124,58,237,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
+  errorActions: {
+    gap: spacing.md,
+    alignItems: 'center',
+    marginTop: spacing.lg,
+  },
   errorButton: {
-    marginTop: spacing.xl,
+    marginTop: spacing.sm,
     minWidth: 200,
   },
+  errorBackLink: {
+    paddingVertical: spacing.sm,
+  },
+  errorBackText: {
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.6)',
+  },
+  errorRetryBtn: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    minWidth: 180,
+  },
+  errorRetryGradient: {
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    borderRadius: 14,
+  },
+  errorRetryText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+
+  /* ─── Header ─── */
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -604,24 +780,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
   },
   iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.glass.medium,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(15,5,32,0.55)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.glass.stroke,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   headerActions: {
     flexDirection: 'row',
     gap: spacing.sm,
   },
+
+  /* ─── Gallery ─── */
   gallery: {
     width,
-    height: width * 1.05,
+    height: width * 1.15,
+    position: 'relative',
   },
   photoSlide: {
     width,
@@ -630,151 +814,362 @@ const styles = StyleSheet.create({
   photo: {
     width: '100%',
     height: '100%',
+    resizeMode: 'cover',
   },
   photoOverlay: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    top: 0,
+    height: '55%',
   },
   indicators: {
     position: 'absolute',
-    top: spacing.md,
+    top: spacing.md + 48,
     left: spacing.lg,
     right: spacing.lg,
     flexDirection: 'row',
-    gap: spacing.xs,
+    gap: 4,
   },
+  indicator: {
+    flex: 1,
+    height: 3,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 2,
+  },
+  indicatorActive: {
+    backgroundColor: '#FFF',
+  },
+  photoNameOverlay: {
+    position: 'absolute',
+    bottom: 20,
+    left: spacing.lg,
+    right: spacing.lg,
+  },
+
+  /* ─── Thumbnails ─── */
   thumbnailRow: {
     flexDirection: 'row',
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    marginTop: spacing.sm,
+    paddingTop: 12,
+    paddingBottom: 4,
   },
   thumbnail: {
-    width: 56,
-    height: 56,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.glass.medium,
+    width: 54,
+    height: 54,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.06)',
   },
   thumbnailActive: {
     borderWidth: 2,
-    borderColor: colors.secondary,
+    borderColor: '#D4AF37',
   },
-  indicator: {
-    flex: 1,
-    height: 4,
-    backgroundColor: colors.glass.medium,
-    borderRadius: 2,
-  },
-  indicatorActive: {
-    backgroundColor: colors.white,
-  },
-  body: {
-    padding: spacing.lg,
-    gap: spacing.lg,
-  },
-  infoCard: {
-    gap: spacing.md,
-  },
-  titleRow: {
+
+  /* ─── Name on photo ─── */
+  nameRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: spacing.md,
+    alignItems: 'center',
   },
-  nameBlock: {
+  heroName: {
+    fontSize: 30,
+    fontWeight: '800',
+    color: '#FFF',
+    letterSpacing: -0.5,
+  },
+  heroAge: {
+    fontSize: 26,
+    fontWeight: '300',
+    color: 'rgba(255,255,255,0.85)',
+  },
+  verifiedBadgeInline: {
+    marginLeft: 6,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  heroLocation: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.7)',
+    fontWeight: '500',
+  },
+
+  /* ─── Body ─── */
+  body: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: 40,
+    gap: 16,
+  },
+
+  /* ─── Verification Banner ─── */
+  verificationBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  verificationBannerVerified: {
+    borderColor: 'rgba(34,197,94,0.3)',
+  },
+  verificationBannerUnverified: {
+    borderColor: 'rgba(251,191,36,0.3)',
+  },
+  verificationBannerText: {
+    fontSize: 14,
+    fontWeight: '700',
     flex: 1,
-    gap: spacing.xs,
   },
-  nameText: {
-    ...typography.h2,
-    color: colors.text.primary,
+  verificationWarningDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FBBF24',
   },
-  metaRow: {
+
+  /* ─── Compatibility Card ─── */
+  compatCard: {
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.25)',
+  },
+  compatHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  compatScoreCircle: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: 'rgba(124,58,237,0.25)',
+    borderWidth: 2,
+    borderColor: '#7C3AED',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compatScoreText: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#FFF',
+  },
+  compatMeta: {
+    flex: 1,
+    gap: 2,
+  },
+  compatTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  compatDesc: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.55)',
+    lineHeight: 18,
+  },
+  compatButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 10,
+    alignSelf: 'flex-end',
+  },
+  compatButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#D4AF37',
+  },
+
+  /* ─── Stats Row ─── */
+  statsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  statCard: {
+    flex: 1,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  statGradient: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  statValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFF',
+  },
+  statLabel: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.5)',
+    textAlign: 'center',
+    marginTop: 4,
+    lineHeight: 14,
+  },
+
+  /* ─── Card (About / Details / Interests) ─── */
+  card: {
+    backgroundColor: 'rgba(26,11,46,0.65)',
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(124,58,237,0.15)',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  cardTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  aboutText: {
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.7)',
+    lineHeight: 22,
+  },
+
+  /* ─── Detail Rows ─── */
+  detailRow: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  detailIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(124,58,237,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailCopy: {
+    flex: 1,
+  },
+  detailLabel: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.4)',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  detailValue: {
+    fontSize: 15,
+    color: '#FFF',
+    fontWeight: '500',
+    marginTop: 1,
+  },
+
+  /* ─── Chips ─── */
+  chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
+    gap: 8,
   },
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.secondary,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-  },
-  pillText: {
-    ...typography.small,
-    color: colors.primaryDark,
-    fontWeight: '700',
-  },
-  badgeStack: {
-    gap: spacing.xs,
-    alignItems: 'flex-end',
-  },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.glass.light,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
+  chip: {
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
     borderWidth: 1,
-    borderColor: colors.glass.stroke,
+    borderColor: 'rgba(124,58,237,0.2)',
   },
-  badgeVerified: {
-    backgroundColor: 'rgba(52, 211, 153, 0.15)',
-    borderColor: 'rgba(52, 211, 153, 0.45)',
-  },
-  badgeUnverified: {
-    backgroundColor: 'rgba(251, 191, 36, 0.15)',
-    borderColor: 'rgba(251, 191, 36, 0.45)',
-  },
-  badgeText: {
-    ...typography.small,
-    color: colors.text.primary,
+  chipText: {
+    fontSize: 13,
+    color: '#FFF',
     fontWeight: '600',
   },
-  badgeTextVerified: {
-    color: colors.success,
-    fontWeight: '700',
+
+  /* ─── Action Buttons ─── */
+  actionCard: {
+    gap: 14,
+    marginTop: 4,
   },
-  badgeTextUnverified: {
-    color: colors.warning,
-    fontWeight: '700',
+  actionRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 20,
   },
-  whyButton: {
+  passBtn: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  superLikeBtn: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    overflow: 'hidden',
+  },
+  likeBtn: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    overflow: 'hidden',
+  },
+  actionBtnGradient: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionDisabled: {
+    opacity: 0.45,
+  },
+  messageBtn: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  messageBtnGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.secondary,
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 16,
+    borderRadius: 16,
   },
-  whyButtonText: {
-    ...typography.small,
-    color: colors.primaryDark,
+  messageBtnText: {
+    fontSize: 16,
     fontWeight: '700',
+    color: '#FFF',
   },
+
+  /* ─── Modal ─── */
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,
   },
   modalCard: {
     width: '100%',
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
+    backgroundColor: '#1A0B2E',
+    borderRadius: 20,
     padding: spacing.lg,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(124,58,237,0.25)',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -783,12 +1178,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   modalTitle: {
-    ...typography.h3,
-    color: colors.text.primary,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFF',
   },
   modalEmpty: {
-    ...typography.body,
-    color: colors.text.secondary,
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.6)',
   },
   modalTable: {
     gap: spacing.sm,
@@ -798,7 +1194,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingBottom: spacing.xs,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
   },
   modalRow: {
     flexDirection: 'row',
@@ -807,140 +1203,18 @@ const styles = StyleSheet.create({
   },
   modalHeaderCell: {
     flex: 1,
-    ...typography.caption,
-    color: colors.text.secondary,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.5)',
     fontWeight: '600',
   },
   modalCellLabel: {
     flex: 1,
-    ...typography.caption,
-    color: colors.text.secondary,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.5)',
   },
   modalCell: {
     flex: 1,
-    ...typography.body,
-    color: colors.text.primary,
-  },
-  sectionRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  statBox: {
-    flex: 1,
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    backgroundColor: colors.glass.medium,
-    alignItems: 'center',
-  },
-  statValue: {
-    ...typography.h2,
-    color: colors.text.primary,
-  },
-  statLabel: {
-    ...typography.caption,
-    color: colors.text.secondary,
-  },
-  section: {
-    gap: spacing.xs,
-  },
-  sectionTitle: {
-    ...typography.h3,
-    color: colors.text.primary,
-  },
-  bodyText: {
-    ...typography.body,
-    color: colors.text.secondary,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  chip: {
-    backgroundColor: colors.glass.light,
-    borderRadius: borderRadius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.glass.stroke,
-  },
-  chipText: {
-    ...typography.caption,
-    color: colors.text.primary,
-    fontWeight: '600',
-  },
-  detailRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    alignItems: 'flex-start',
-    paddingVertical: spacing.xs,
-  },
-  detailIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.glass.medium,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  detailCopy: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  detailLabel: {
-    ...typography.caption,
-    color: colors.text.secondary,
-  },
-  detailValue: {
-    ...typography.body,
-    color: colors.text.primary,
-  },
-  ctaCard: {
-    gap: spacing.sm,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  ctaRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  actionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  passButton: {
-    backgroundColor: colors.glass.medium,
-  },
-  likeButton: {
-    backgroundColor: colors.sunset,
-    borderColor: colors.sunset,
-  },
-  superLikeButton: {
-    backgroundColor: colors.secondary,
-    borderColor: colors.secondary,
-  },
-  actionDisabled: {
-    opacity: 0.6,
-  },
-  actionText: {
-    ...typography.body,
-    color: colors.white,
-    fontWeight: '700',
-  },
-  darkText: {
-    color: colors.primaryDark,
-  },
-  messageButton: {
-    marginTop: spacing.sm,
+    fontSize: 14,
+    color: '#FFF',
   },
 });

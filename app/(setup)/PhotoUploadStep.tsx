@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadImageAsync } from '@/api/upload';
+import StepProgressHeader from '@/components/StepProgressHeader';
 
 const { width } = Dimensions.get('window');
 
@@ -102,22 +102,12 @@ const PhotoUploadStep: React.FC<Props> = ({ photos, onUpdate, onNext, onBack, cu
 
   return (
     <View style={styles.container}>
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: `${(currentStep / totalSteps) * 100}%` }]} />
-        </View>
-        <Text style={styles.progressText}>Step {currentStep} of {totalSteps}</Text>
-      </View>
-
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Svg width={24} height={24} viewBox="0 0 24 24">
-            <Path d="M15 18L9 12L15 6" stroke="#FFFFFF" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
-        </TouchableOpacity>
-        <Text style={styles.title}>Add Photos</Text>
-        <View style={{ width: 24 }} />
-      </View>
+      <StepProgressHeader
+        currentStep={currentStep}
+        title="Add Photos"
+        onBack={onBack}
+        showSkip={false}
+      />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         <Text style={styles.subtitle}>Upload 1-10 photos to complete your profile</Text>

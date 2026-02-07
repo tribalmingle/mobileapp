@@ -37,6 +37,7 @@ export default function WelcomeScreen() {
   const scrollX = useRef(new Animated.Value(0)).current;
 
   const handleGetStarted = () => router.replace('/(auth)/signup');
+  const handleSignIn = () => router.replace('/(auth)/login');
   const handleNext = () => {
     if (currentIndex < slides.length - 1) {
       flatListRef.current?.scrollToIndex({ index: currentIndex + 1, animated: true });
@@ -77,7 +78,7 @@ export default function WelcomeScreen() {
         <View style={styles.content}>
           <View style={styles.logoContainer}>
             <View style={styles.logoBadge}>
-              <Image source={require('../../assets/logop.webp')} style={styles.logoImage} resizeMode="contain" />
+              <Image source={require('../../assets/logo.png')} style={styles.logoImage} resizeMode="contain" />
             </View>
             <Text style={styles.tagline}>Connect with Your Roots</Text>
           </View>
@@ -107,9 +108,27 @@ export default function WelcomeScreen() {
           {renderDots()}
 
           <View style={styles.buttonContainer}>
-            <TouchableOpacity style={styles.button} onPress={handleNext}>
-              <Text style={styles.buttonText}>{isLastSlide ? 'Get Started' : 'Next'}</Text>
-            </TouchableOpacity>
+            {isLastSlide ? (
+              <View style={styles.dualButtonRow}>
+                <TouchableOpacity style={styles.primaryButton} onPress={handleGetStarted}>
+                  <LinearGradient
+                    colors={['#FF6B9D', '#F97316']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.gradientButton}
+                  >
+                    <Text style={styles.buttonText}>Get Started</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.secondaryButton} onPress={handleSignIn}>
+                  <Text style={styles.secondaryButtonText}>Sign In</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.button} onPress={handleNext}>
+                <Text style={styles.buttonText}>Next</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </LinearGradient>
@@ -157,6 +176,11 @@ const styles = StyleSheet.create({
   },
   dot: { height: 8, borderRadius: 4, marginHorizontal: 4 },
   buttonContainer: { paddingHorizontal: spacing.lg, paddingBottom: Platform.OS === 'android' ? spacing.sm : spacing.xl, marginTop: Platform.OS === 'android' ? spacing.xs : spacing.xl },
+  dualButtonRow: { flexDirection: 'row', gap: spacing.md },
+  primaryButton: { flex: 1, borderRadius: 50, overflow: 'hidden' },
+  gradientButton: { paddingVertical: spacing.md + 4, alignItems: 'center', borderRadius: 50 },
+  secondaryButton: { flex: 1, borderWidth: 2, borderColor: colors.secondary, paddingVertical: spacing.md + 2, borderRadius: 50, alignItems: 'center', backgroundColor: 'transparent' },
+  secondaryButtonText: { color: colors.secondary, fontSize: 18, fontWeight: 'bold' },
   button: { marginBottom: spacing.md, backgroundColor: colors.primary, paddingVertical: spacing.md + 4, borderRadius: 50, alignItems: 'center' },
   buttonText: { color: colors.white, fontSize: 18, fontWeight: 'bold' },
 });

@@ -4,6 +4,8 @@ export type Participant = {
   id: string;
   name: string;
   photo?: string;
+  isOnline?: boolean;
+  lastActive?: string;
 };
 
 export type Message = {
@@ -45,6 +47,8 @@ const normalizeParticipant = (raw: any): Participant => ({
   name: raw?.name || raw?.fullName || raw?.username || raw?.displayName || 'Member',
   photo:
     raw?.photo || raw?.avatar || raw?.image || raw?.profilePhoto || raw?.profileImage || raw?.profileImageUrl || undefined,
+  isOnline: raw?.isOnline ?? raw?.is_online ?? raw?.online ?? undefined,
+  lastActive: raw?.lastActive || raw?.last_active || raw?.lastSeen || raw?.last_seen || undefined,
 });
 
 const normalizeMessage = (raw: any): Message => ({

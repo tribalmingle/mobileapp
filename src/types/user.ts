@@ -1,4 +1,4 @@
-export type SubscriptionPlan = 'free' | 'monthly' | '3-month' | '6-month' | 'premium_plus' | 'guardian' | 'concierge';
+export type SubscriptionPlan = 'free' | 'trial' | 'monthly' | '3-month' | '6-month' | 'premium_plus' | 'guardian' | 'concierge';
 
 export interface CulturalValues {
   spirituality: number;

@@ -86,7 +86,7 @@ export default function UniversalHeader({
           <View style={styles.whiteContainer}>
             <View style={styles.logoContainer}>
               <Image
-                source={require('../../../assets/logop.webp')}
+                source={require('../../../assets/logo.png')}
                 style={styles.logoImage}
                 resizeMode="contain"
               />
@@ -110,7 +110,7 @@ export default function UniversalHeader({
             rightAction
           ) : (
             <>
-              <TouchableOpacity onPress={handleProfileClick} style={styles.profileButton} hitSlop={styles.hitSlop}>
+              <TouchableOpacity onPress={handleProfileClick} style={styles.profileContainer} hitSlop={styles.hitSlop}>
                 {profileImageUrl ? (
                   <Image source={{ uri: profileImageUrl }} style={styles.profileImage} />
                 ) : (
@@ -118,6 +118,7 @@ export default function UniversalHeader({
                     <Feather name="user" size={18} color={colors.primaryDark} />
                   </View>
                 )}
+                <Text style={styles.profileLabel}>My Profile</Text>
               </TouchableOpacity>
 
               <Modal visible={showDropdown} transparent animationType="fade" onRequestClose={() => setShowDropdown(false)}>
@@ -147,14 +148,6 @@ export default function UniversalHeader({
                     >
                       <Feather name="heart" size={20} color="#000000" />
                       <Text style={styles.menuItemText}>Guaranteed Dating</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.menuItem}
-                      onPress={() => handleMenuItemPress(() => router.push('/community'))}
-                    >
-                      <Feather name="users" size={20} color="#000000" />
-                      <Text style={styles.menuItemText}>Community</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -258,11 +251,17 @@ const styles = StyleSheet.create({
     position: 'relative',
     marginLeft: 10,
   },
-  profileButton: {
-    width: 40,
-    height: 40,
+  profileContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  profileLabel: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   profileIconPlaceholder: {
     width: 62,
@@ -276,8 +275,13 @@ const styles = StyleSheet.create({
     width: 62,
     height: 62,
     borderRadius: 31,
-    borderWidth: 5,
-    borderColor: colors.white,
+    borderWidth: 3,
+    borderColor: 'rgba(212, 175, 55, 0.5)',
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 5,
   },
   badge: {
     position: 'absolute',
