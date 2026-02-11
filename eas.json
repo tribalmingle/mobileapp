@@ -4,6 +4,19 @@
     "appVersionSource": "remote"
   },
   "build": {
+    "debug": {
+      "distribution": "internal",
+      "channel": "debug",
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "preview",
+        "EXPO_PUBLIC_API_BASE_URL": "https://tribalmingle.com/api",
+        "EXPO_PUBLIC_UPLOAD_BASE_URL": "https://tm.d2d.ng"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
     "preview": {
       "distribution": "internal",
       "channel": "preview",

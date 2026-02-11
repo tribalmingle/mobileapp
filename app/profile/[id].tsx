@@ -407,10 +407,10 @@ export default function ProfileDetailScreen() {
               <Ionicons name="arrow-back" size={22} color="#FFF" />
             </TouchableOpacity>
             <View style={styles.headerActions}>
-              <TouchableOpacity style={styles.iconButton} onPress={() => onAction('Share profile')}>
+              <TouchableOpacity style={styles.iconButton} onPress={() => Alert.alert('Share', 'Share profile feature coming soon')}>
                 <Ionicons name="share-social" size={20} color="#FFF" />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.iconButton} onPress={() => onAction('Report')}>
+              <TouchableOpacity style={styles.iconButton} onPress={() => Alert.alert('Report', 'Report feature coming soon')}>
                 <Ionicons name="flag" size={20} color="#FFF" />
               </TouchableOpacity>
             </View>

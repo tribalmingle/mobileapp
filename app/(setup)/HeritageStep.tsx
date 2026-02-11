@@ -10,6 +10,7 @@ import {
   FlatList,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Path } from 'react-native-svg';
 import StepProgressHeader from '@/components/StepProgressHeader';
 import { HERITAGE_COUNTRIES, getTribesForCountry } from '@/constants/heritageData';
 

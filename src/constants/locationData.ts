@@ -68,11 +68,7 @@ export const CITIES_BY_COUNTRY: Record<string, string[]> = {
     'Okrika',
     'Other',
   ],
-  Kenya: ['Nairobi', 'Mombasa', 'Kisumu', 'Eldoret', 'Nakuru', 'Other'],
   'South Africa': ['Johannesburg', 'Cape Town', 'Durban', 'Pretoria', 'Port Elizabeth', 'Other'],
-  Ghana: ['Accra', 'Kumasi', 'Takoradi', 'Tamale', 'Ho', 'Other'],
-  Ethiopia: ['Addis Ababa', 'Dire Dawa', 'Mekelle', 'Gondar', 'Hawassa', 'Other'],
-  Egypt: ['Cairo', 'Alexandria', 'Giza', 'Luxor', 'Aswan', 'Other'],
   'United States': ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Atlanta', 'Other'],
   'United Kingdom': [
     'London',

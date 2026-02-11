@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import * as SecureStore from '@/utils/secureStore';
 import apiClient, { API_BASE_URL, isDemoMode } from '@/api/client';
 import axios from 'axios';
-import { registerDeviceToken } from '../api/notifications';
 import { identifyUser, trackEvent, captureError } from '@/lib/analytics';
 import { User, AuthResponse, SignupData } from '@/types/user';
 
@@ -235,11 +234,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   setPushToken: (token: string | null) => {
     set({ pushToken: token });
     if (token) {
-      console.log('Expo push token:', token);
-      registerDeviceToken(token).catch((err: unknown) => {
-        const message = (err as any)?.message || String(err);
-        console.warn('push token register failed', message);
-      });
+      console.log('Push token updated:', token);
     }
   },
 }));

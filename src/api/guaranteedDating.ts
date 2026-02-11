@@ -19,6 +19,7 @@ export interface GuaranteedDatingRequest {
   dealBreakers?: string[];
   notes?: string;
   preferences?: Record<string, any>;
+  paidAmount?: number;
 }
 
 export const submitGuaranteedDating = async (payload: GuaranteedDatingRequest): Promise<GuaranteedDatingStatus> => {

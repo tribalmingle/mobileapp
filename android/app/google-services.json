@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "386573502751",
+    "project_id": "tribalmingle-a033f",
+    "storage_bucket": "tribalmingle-a033f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:386573502751:android:5164f8f3e61e16f74a082a",
+        "android_client_info": {
+          "package_name": "com.tribalmingle.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAXiF8MnPUdA2Rn3zZAsxyUPXhC1olxWiY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

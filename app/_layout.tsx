@@ -3,7 +3,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { colors } from '@/theme';
 import { useEffect } from 'react';
-import { configureNotificationHandling, requestAndRegisterPushToken, notificationResponseListener, notificationForegroundListener } from '@/config/notifications';
+import { configureNotificationHandling, requestAndRegisterPushToken, registerPushTokenListener, notificationResponseListener, notificationForegroundListener } from '@/config/notifications';
 import { initAnalytics, trackEvent } from '@/lib/analytics';
 import { configureAnalyticsProvider } from '@/config/analytics';
 import { useScreenTracking } from '@/hooks/useScreenTracking';
@@ -32,19 +32,42 @@ export default function RootLayout() {
       console.warn('Notification handling setup failed', error);
     }
 
+    let active = true;
+    const loadInitialResponse = async () => {
+      try {
+        const Notifications = await import('expo-notifications');
+        const response = await Notifications.getLastNotificationResponseAsync();
+        const url = (response?.notification?.request?.content?.data as any)?.deepLink as string | undefined;
+        if (active && url) {
+          router.push(url);
+        }
+      } catch (error) {
+        console.warn('Failed to load initial notification response', error);
+      }
+    };
+
+    loadInitialResponse();
+
     const sub = notificationResponseListener((url) => {
       router.push(url);
     });
     const fg = notificationForegroundListener(() => {});
+    const tokenSub = registerPushTokenListener();
 
     return () => {
+      active = false;
       sub.remove();
       fg.remove();
+      tokenSub.remove();
     };
   }, []);
 
   useEffect(() => {
     if (!isAuthenticated || !token) return;
+    console.log('[PUSH] Authenticated, requesting device token', {
+      isAuthenticated,
+      hasToken: !!token,
+    });
     requestAndRegisterPushToken().catch((error) => {
       console.warn('Push token registration failed', error);
     });

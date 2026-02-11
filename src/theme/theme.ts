@@ -14,6 +14,7 @@ export const colors = {
     primary: '#F8F5FF',
     secondary: '#B8A9D4',
     tertiary: '#8B7355',
+    muted: '#6B7280',
   },
   input: {
     background: '#FFFFFF',

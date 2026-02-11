@@ -3,11 +3,11 @@
     "name": "TribalMingle",
     "slug": "tmapp",
     "scheme": "tmapp",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
-    "icon": "./assets/logo.png",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -17,18 +17,47 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.tribalmingle.app",
       "buildNumber": "2",
+      "entitlements": {
+        "aps-environment": "production"
+      },
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       }
     },
     "android": {
+      "googleServicesFile": "./android/app/google-services.json",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/logo.png",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0F0520"
       },
+      "minSdkVersion": 21,
+      "supportedAbis": [
+        "armeabi-v7a",
+        "arm64-v8a",
+        "x86",
+        "x86_64"
+      ],
       "edgeToEdgeEnabled": true,
       "package": "com.tribalmingle.app",
-      "versionCode": 3
+      "versionCode": 3,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "INTERNET",
+        "MODIFY_AUDIO_SETTINGS",
+        "READ_EXTERNAL_STORAGE",
+        "RECORD_AUDIO",
+        "SYSTEM_ALERT_WINDOW",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT",
+        "VIBRATE",
+        "WRITE_EXTERNAL_STORAGE",
+        "POST_NOTIFICATIONS"
+      ]
     },
     "web": {
       "favicon": "./assets/logo.png"
@@ -43,7 +72,8 @@
         }
       ],
       "expo-secure-store",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-font"
     ],
     "extra": {
       "router": {
@@ -53,9 +83,6 @@
         "projectId": "309dc50f-fb46-49f7-bd62-6a1a86d72910"
       }
     },
-    "runtimeVersion": "1.0.1",
-    "updates": {
-      "url": "https://u.expo.dev/309dc50f-fb46-49f7-bd62-6a1a86d72910"
-    }
+    "owner": "ccmendel"
   }
 }

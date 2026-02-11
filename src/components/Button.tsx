@@ -15,7 +15,7 @@ interface ButtonProps {
   style?: ViewStyle;
   textStyle?: TextStyle;
   loading?: boolean;
-  gradient?: readonly string[];
+  gradient?: readonly [string, string, ...string[]];
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -49,7 +49,7 @@ export const Button: React.FC<ButtonProps> = ({
       activeOpacity={0.85}
     >
       {shouldUseGradient ? (
-        <LinearGradient colors={gradient as string[]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.gradientFill, sizeStyle]}>
+        <LinearGradient colors={gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.gradientFill, sizeStyle]}>
           {loading ? <ActivityIndicator size="small" color={indicatorColor} /> : <Text style={[textColorStyle, textStyle]}>{title}</Text>}
         </LinearGradient>
       ) : loading ? (

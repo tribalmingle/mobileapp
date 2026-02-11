@@ -10,6 +10,7 @@ import {
   FlatList,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Path } from 'react-native-svg';
 import * as Location from 'expo-location';
 import StepProgressHeader from '@/components/StepProgressHeader';
 

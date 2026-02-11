@@ -1,12 +1,13 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import * as Device from 'expo-device';
 import { registerDeviceToken } from '../api/notifications';
+import { emitPushEvent } from '../lib/notificationBus';
 import { useAuthStore } from '../store/authStore';
 import { useNotificationStore } from '../store/notificationStore';
 
-const isExpoGo =
-  Constants.appOwnership === 'expo' ||
-  (Constants as any).executionEnvironment === 'storeClient';
+// Treat only Expo Go as unsupported for push (dev client should proceed).
+const isExpoGo = (Constants as any).executionEnvironment === 'storeClient';
 
 const getNotificationsModule = () => {
   if (isExpoGo) return null;
@@ -15,23 +16,52 @@ const getNotificationsModule = () => {
 
 const noopSubscription = { remove: () => {} };
 
+const getUserId = () => {
+  const user = useAuthStore.getState().user as any;
+  return user?._id || user?.id || user?.userId || user?.uid || user?.email || undefined;
+};
+
+const ensureAndroidChannel = async () => {
+  const Notifications = getNotificationsModule();
+  if (!Notifications || Platform.OS !== 'android') return;
+  await Notifications.setNotificationChannelAsync('default', {
+    name: 'default',
+    importance: Notifications.AndroidImportance.MAX,
+    sound: 'default',
+    vibrationPattern: [0, 250, 250, 250],
+    enableVibrate: true,
+    enableLights: true,
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+  });
+};
+
 export const configureNotificationHandling = () => {
   const Notifications = getNotificationsModule();
   if (!Notifications) return;
   Notifications.setNotificationHandler({
     handleNotification: async () => ({ 
       shouldShowAlert: true, 
-      shouldPlaySound: false, 
-      shouldSetBadge: false,
+      shouldPlaySound: true, 
+      shouldSetBadge: true,
       shouldShowBanner: true,
       shouldShowList: true,
     }),
+  });
+  ensureAndroidChannel().catch((error) => {
+    console.warn('Failed to configure Android notification channel', error);
   });
 };
 
 export const requestAndRegisterPushToken = async () => {
   try {
-    if (isExpoGo || !Constants.isDevice) {
+    console.log('[PUSH] requestAndRegisterPushToken start', {
+      isExpoGo,
+      isDevice: Device.isDevice,
+      platform: Platform.OS,
+      appVersion: Constants.expoConfig?.version,
+    });
+    if (isExpoGo || !Device.isDevice) {
+      console.log('[PUSH] Skipping token request (Expo Go or not a device)');
       return null;
     }
 
@@ -44,34 +74,34 @@ export const requestAndRegisterPushToken = async () => {
       const { status } = await Notifications.requestPermissionsAsync();
       finalStatus = status;
     }
+    console.log('[PUSH] Permission status', { existingStatus, finalStatus });
     if (finalStatus !== 'granted') {
+      console.log('[PUSH] Permission not granted, aborting token request');
       return null;
     }
 
-    const projectId =
-      Constants.expoConfig?.extra?.eas?.projectId ||
-      Constants.easConfig?.projectId ||
-      (Constants as any)?.manifest2?.extra?.eas?.projectId;
+    const devicePushToken = await Notifications.getDevicePushTokenAsync();
+    const token = devicePushToken.data;
+    const tokenType = devicePushToken.type as 'fcm' | 'apns';
+    console.log('[PUSH] Device token received', {
+      tokenType,
+      tokenPreview: token ? `${token.slice(0, 6)}...${token.slice(-4)}` : null,
+    });
 
-    if (!projectId) {
-      console.warn('Expo projectId missing; skip push token registration. Add extra.eas.projectId or run in EAS build.');
-      return null;
-    }
-
-    const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
-    const token = tokenResponse.data;
-
-    if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('default', {
-        name: 'default',
-        importance: Notifications.AndroidImportance.MAX,
-      });
-    }
+    await ensureAndroidChannel();
 
     // store + register with backend
     useAuthStore.getState().setPushToken(token);
     try {
-      await registerDeviceToken(token);
+      await registerDeviceToken({
+        userId: getUserId(),
+        deviceToken: token,
+        tokenType,
+        platform: Platform.OS,
+        deviceId: Device.osBuildId || undefined,
+        deviceName: Device.deviceName || undefined,
+        appVersion: Constants.expoConfig?.version,
+      });
     } catch (error) {
       console.warn('Device token registration failed', error);
     }
@@ -80,6 +110,27 @@ export const requestAndRegisterPushToken = async () => {
     console.warn('Push token setup failed', error);
     return null;
   }
+};
+
+export const registerPushTokenListener = () => {
+  const Notifications = getNotificationsModule();
+  if (!Notifications) return noopSubscription;
+
+  return Notifications.addPushTokenListener((token) => {
+    const tokenType = token.type as 'fcm' | 'apns';
+    useAuthStore.getState().setPushToken(token.data);
+    registerDeviceToken({
+      userId: getUserId(),
+      deviceToken: token.data,
+      tokenType,
+      platform: Platform.OS,
+      deviceId: Device.osBuildId || undefined,
+      deviceName: Device.deviceName || undefined,
+      appVersion: Constants.expoConfig?.version,
+    }).catch((error) => {
+      console.warn('Push token refresh registration failed', error);
+    });
+  });
 };
 
 export const notificationResponseListener = (onDeepLink: (url: string) => void) => {
@@ -104,6 +155,7 @@ export const notificationForegroundListener = (onReceive: (data: any) => void) =
     const body = notification?.request?.content?.body ?? undefined;
     add({ title, body, data });
     if (data) {
+      emitPushEvent(data as any);
       onReceive(data);
     }
   });

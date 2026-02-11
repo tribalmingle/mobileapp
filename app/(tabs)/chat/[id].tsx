@@ -17,8 +17,8 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import Constants from 'expo-constants';
 import UniversalBackground from '@/components/universal/UniversalBackground';
 import { colors, spacing, typography, borderRadius } from '@/theme';
 import {
@@ -35,13 +35,10 @@ import {
   sendTypingStatus,
 } from '@/api/messaging';
 import { useAuthStore } from '@/store/authStore';
-import { useNotificationStore } from '@/store/notificationStore';
 import { useChatStore } from '@/store/chatStore';
 import { fetchUserOnlineStatus } from '@/api/users';
+import { onPushEvent } from '@/lib/notificationBus';
 
-const isExpoGo =
-  Constants.appOwnership === 'expo' ||
-  (Constants as any).executionEnvironment === 'storeClient';
 
 const normalizeId = (value?: string | null) => (value ? String(value).toLowerCase() : '');
 
@@ -62,6 +59,7 @@ export default function ThreadScreen() {
   const router = useRouter();
   const { id, name: nameParam, avatar } = useLocalSearchParams<{ id: string; name?: string; avatar?: string }>();
   const { user } = useAuthStore();
+  const insets = useSafeAreaInsets();
 
   const currentUserId = useMemo(
     () => user?._id || user?.id || (user as any)?.userId || (user as any)?.uid || (user as any)?.email || (user as any)?.profileId,
@@ -88,7 +86,6 @@ export default function ThreadScreen() {
   const isLoadingRef = useRef(false);
   const initialLoadRef = useRef(true);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const addNotification = useNotificationStore((s) => s.addNotification);
 
   // Reaction and Reply state
   const [selectedMessage, setSelectedMessage] = useState<ExtendedMessage | null>(null);
@@ -172,29 +169,15 @@ export default function ThreadScreen() {
           if (!id) return;
           fetchTypingStatus(String(id)).then((list) => setTypingUsers(list || [])).catch(() => {});
         }, 2000);
-    let sub: { remove: () => void } | null = null;
-
-    const registerNotificationListener = async () => {
-      if (isExpoGo) return;
-      const Notifications = await import('expo-notifications');
-      sub = Notifications.addNotificationReceivedListener((notification) => {
-        const data = notification?.request?.content?.data as any;
-        if (data?.type === 'message' && (!data.threadId || String(data.threadId) === String(id))) {
-          loadThread();
-          addNotification({
-            title: notification?.request?.content?.title ?? 'New message',
-            body: notification?.request?.content?.body ?? undefined,
-            data,
-          });
-        }
-      });
-    };
-
-    registerNotificationListener();
+    const unsubscribe = onPushEvent((data) => {
+      if (data?.type === 'message' && (!data.threadId || String(data.threadId) === String(id))) {
+        loadThread();
+      }
+    });
     return () => {
       if (interval) clearInterval(interval);
       if (typingInterval) clearInterval(typingInterval);
-      sub?.remove();
+      unsubscribe();
     };
   }, [fetchTypingStatus, id, loadThread, useDirect]);
 
@@ -217,6 +200,19 @@ export default function ThreadScreen() {
     markThreadRead(String(id)).catch(() => {});
     markThreadReadInStore(String(id));
   }, [id, useDirect, messages.length, markThreadReadInStore]);
+
+  const displayName = useMemo(() => {
+    if (nameParam) return nameParam;
+    const participant = thread?.participants?.[0];
+    return participant?.name || 'Chat';
+  }, [nameParam, thread]);
+
+  const targetUserId = useMemo(() => {
+    const participantId = thread?.participants?.[0]?.id;
+    if (participantId) return participantId;
+    if (useDirect && id) return String(id);
+    return undefined;
+  }, [id, thread, useDirect]);
 
   // Poll partner's online status
   useEffect(() => {
@@ -259,7 +255,7 @@ export default function ThreadScreen() {
       content: input.trim(),
       createdAt: new Date().toISOString(),
       status: 'sent',
-      replyTo: replyingTo ? { id: replyingTo.id, content: replyingTo.content } : undefined,
+      replyTo: replyingTo ? { id: replyingTo.id, content: replyingTo.content, senderId: replyingTo.senderId } : undefined,
     };
     setMessages((prev) => [...prev, pending]);
     setInput('');
@@ -279,19 +275,6 @@ export default function ThreadScreen() {
       setSending(false);
     }
   };
-
-  const displayName = useMemo(() => {
-    if (nameParam) return nameParam;
-    const participant = thread?.participants?.[0];
-    return participant?.name || 'Chat';
-  }, [nameParam, thread]);
-
-  const targetUserId = useMemo(() => {
-    const participantId = thread?.participants?.[0]?.id;
-    if (participantId) return participantId;
-    if (useDirect && id) return String(id);
-    return undefined;
-  }, [id, thread, useDirect]);
 
   const participantAvatar = useMemo(() => (avatar as string) || thread?.participants?.[0]?.photo || '', [avatar, thread]);
   const participantInitial = useMemo(() => displayName?.[0]?.toUpperCase?.() || '?', [displayName]);
@@ -371,51 +354,78 @@ export default function ThreadScreen() {
       Animated.spring(reactionScale, { toValue: 1, friction: 5, useNativeDriver: true }).start();
     };
 
-    const BubbleWrapper = isMe ? LinearGradient : View;
-    const bubbleProps = isMe 
-      ? { colors: ['#5B2E91', '#3D1F61'], start: { x: 0, y: 0 }, end: { x: 1, y: 1 } }
-      : {};
-    
     return (
       <Pressable 
         onLongPress={handleLongPress}
         delayLongPress={300}
         style={[styles.messageRow, isMe ? styles.messageRowMe : styles.messageRowThem]}
       >
-        <BubbleWrapper {...bubbleProps} style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
-          {/* Reply preview */}
-          {item.replyTo && (
-            <TouchableOpacity 
-              style={styles.replyPreviewInBubble}
-              onPress={() => scrollToMessage(item.replyTo!.id)}
-            >
-              <View style={styles.replyPreviewBar} />
-              <Text style={styles.replyPreviewText} numberOfLines={1}>
-                {item.replyTo.content}
+        {isMe ? (
+          <LinearGradient
+            colors={['#5B2E91', '#3D1F61'] as const}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.bubble, styles.bubbleMe]}
+          >
+            {/* Reply preview */}
+            {item.replyTo && (
+              <TouchableOpacity 
+                style={styles.replyPreviewInBubble}
+                onPress={() => scrollToMessage(item.replyTo!.id)}
+              >
+                <View style={styles.replyPreviewBar} />
+                <Text style={styles.replyPreviewText} numberOfLines={1}>
+                  {item.replyTo.content}
+                </Text>
+              </TouchableOpacity>
+            )}
+            {item.content ? <Text style={[styles.messageText, styles.messageTextMe]}>{item.content}</Text> : null}
+            <View style={[styles.metaRow, styles.metaRowMe]}>
+              <Text style={[styles.timestamp, styles.timestampMe]}>
+                {new Date(item.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
               </Text>
-            </TouchableOpacity>
-          )}
-          {item.content ? <Text style={[styles.messageText, isMe ? styles.messageTextMe : styles.messageTextThem]}>{item.content}</Text> : null}
-          <View style={[styles.metaRow, isMe && styles.metaRowMe]}>
-            <Text style={[styles.timestamp, isMe && styles.timestampMe]}>
-              {new Date(item.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-            </Text>
-            {isMe && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
                 <Ionicons name={statusIcon as any} size={14} color={statusColor} />
                 <Text style={{ fontSize: 10, color: statusColor, fontWeight: item.status === 'read' ? '600' : '400' }}>
                   {statusLabel}
                 </Text>
               </View>
+            </View>
+            {/* Reaction badge */}
+            {item.reaction && (
+              <View style={[styles.reactionBadge, styles.reactionBadgeMe]}>
+                <Text style={styles.reactionEmoji}>{item.reaction}</Text>
+              </View>
+            )}
+          </LinearGradient>
+        ) : (
+          <View style={[styles.bubble, styles.bubbleThem]}>
+            {/* Reply preview */}
+            {item.replyTo && (
+              <TouchableOpacity 
+                style={styles.replyPreviewInBubble}
+                onPress={() => scrollToMessage(item.replyTo!.id)}
+              >
+                <View style={styles.replyPreviewBar} />
+                <Text style={styles.replyPreviewText} numberOfLines={1}>
+                  {item.replyTo.content}
+                </Text>
+              </TouchableOpacity>
+            )}
+            {item.content ? <Text style={[styles.messageText, styles.messageTextThem]}>{item.content}</Text> : null}
+            <View style={styles.metaRow}>
+              <Text style={styles.timestamp}>
+                {new Date(item.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+              </Text>
+            </View>
+            {/* Reaction badge */}
+            {item.reaction && (
+              <View style={styles.reactionBadge}>
+                <Text style={styles.reactionEmoji}>{item.reaction}</Text>
+              </View>
             )}
           </View>
-          {/* Reaction badge */}
-          {item.reaction && (
-            <View style={[styles.reactionBadge, isMe ? styles.reactionBadgeMe : styles.reactionBadgeThem]}>
-              <Text style={styles.reactionEmoji}>{item.reaction}</Text>
-            </View>
-          )}
-        </BubbleWrapper>
+        )}
       </Pressable>
     );
   };
@@ -722,7 +732,8 @@ export default function ThreadScreen() {
             </View>
           )}
 
-          <View style={styles.inputContainer}>
+          <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}
+          >
             <View style={styles.inputRow}>
               <View style={styles.inputWrapper}>
                 <TextInput

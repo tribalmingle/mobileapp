@@ -2,17 +2,12 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, RefreshControl, FlatList, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import Constants from 'expo-constants';
 import UniversalBackground from '@/components/universal/UniversalBackground';
 import GlassCard from '@/components/GlassCard';
 import { colors, spacing, typography, borderRadius } from '@/theme';
 import { fetchThreads, Thread, markThreadRead } from '@/api/messaging';
-import { useNotificationStore } from '@/store/notificationStore';
 import { useChatStore } from '@/store/chatStore';
-
-const isExpoGo =
-  Constants.appOwnership === 'expo' ||
-  (Constants as any).executionEnvironment === 'storeClient';
+import { onPushEvent } from '@/lib/notificationBus';
 
 const ConversationRow = ({ thread, onPress, onMarkRead }: { thread: Thread; onPress: () => void; onMarkRead: () => void }) => {
   const participant = thread.participants?.[0];
@@ -84,7 +79,6 @@ export default function ChatScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; tone?: 'info' | 'success' | 'error' } | null>(null);
-  const addNotification = useNotificationStore((s) => s.addNotification);
   const syncFromThreads = useChatStore((s) => s.syncFromThreads);
   const markThreadReadInStore = useChatStore((s) => s.markThreadRead);
 
@@ -111,27 +105,16 @@ export default function ChatScreen() {
   useEffect(() => {
     loadThreads();
     const interval = setInterval(loadThreads, 5000);
-    let sub: { remove: () => void } | null = null;
+    const unsubscribe = onPushEvent((payload) => {
+      if (payload?.type === 'message') {
+        loadThreads();
+        setToast({ message: 'New message', tone: 'info' });
+      }
+    });
 
-    const registerNotificationListener = async () => {
-      if (isExpoGo) return;
-      const Notifications = await import('expo-notifications');
-      sub = Notifications.addNotificationReceivedListener((notification) => {
-        const type = (notification?.request?.content?.data as any)?.type;
-        if (type === 'message') {
-          loadThreads();
-          setToast({ message: 'New message', tone: 'info' });
-          const title = notification?.request?.content?.title || 'New message';
-          const body = notification?.request?.content?.body || undefined;
-          addNotification({ title, body, data: notification?.request?.content?.data as any });
-        }
-      });
-    };
-
-    registerNotificationListener();
     return () => {
       clearInterval(interval);
-      sub?.remove();
+      unsubscribe();
     };
   }, [loadThreads]);
 

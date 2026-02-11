@@ -62,6 +62,7 @@ export default function UniversalBottomNav({ totalUnreadCount = 0 }: { totalUnre
   
   // Use chat-specific unread count for the chat tab badge
   const chatBadgeCount = totalUnreadCount + chatUnread;
+  const navColors = [gradients.hero.colors[2], gradients.hero.colors[1], gradients.hero.colors[0]] as const;
 
   // Hide the bottom nav when inside a chat conversation (chat/[id])
   const isChatDetail = /^\/(tabs\/)?chat\/[^/]+/.test(pathname) && pathname !== '/(tabs)/chat' && pathname !== '/chat';
@@ -73,13 +74,13 @@ export default function UniversalBottomNav({ totalUnreadCount = 0 }: { totalUnre
 
   return (
     <LinearGradient
-      colors={gradients.hero.colors.slice().reverse()}
+      colors={navColors}
       start={{ x: 0, y: 0 }}
       end={{ x: 0, y: 1 }}
       style={[
         styles.container,
         {
-          paddingBottom: Platform.OS === 'ios' ? Math.max(insets.bottom, 8) : spacing.sm,
+          paddingBottom: Math.max(insets.bottom, spacing.sm),
         },
       ]}
     >

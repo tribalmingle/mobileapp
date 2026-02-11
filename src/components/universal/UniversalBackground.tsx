@@ -16,6 +16,7 @@ interface UniversalBackgroundProps extends Partial<UniversalHeaderProps> {
   showBottomNav?: boolean;
   /** Control which safe area edges are applied. Default: all edges. Use ['top'] for keyboard screens. */
   safeAreaEdges?: Edge[];
+  toast?: { message: string; tone?: 'error' | 'info' | 'success' } | null;
 }
 
 export default function UniversalBackground({
@@ -39,6 +40,7 @@ export default function UniversalBackground({
   rightAction,
   showBottomNav = false,
   safeAreaEdges,
+  toast,
 }: UniversalBackgroundProps) {
   const Container = scrollable ? ScrollView : View;
   const navigation = useNavigation<any>();
@@ -63,6 +65,7 @@ export default function UniversalBackground({
   const resolvedOnNotificationPress = onNotificationPress || (() => router.push('/notifications'));
 
   const showPageHeader = resolvedShowBackButton || Boolean(title);
+  const toastTone = toast?.tone ?? 'info';
 
   const content = (
     <SafeAreaView style={styles.safeArea} edges={safeAreaEdges}>
@@ -96,6 +99,17 @@ export default function UniversalBackground({
             {title ? <Text style={styles.pageTitle}>{title}</Text> : null}
           </View>
         )}
+        {toast?.message ? (
+          <View
+            style={[
+              styles.toast,
+              toastTone === 'error' && styles.toastError,
+              toastTone === 'success' && styles.toastSuccess,
+            ]}
+          >
+            <Text style={styles.toastText}>{toast.message}</Text>
+          </View>
+        ) : null}
         <Container
           style={[styles.container, style]}
           contentContainerStyle={scrollable ? [styles.scrollContent, contentContainerStyle] : undefined}
@@ -175,6 +189,28 @@ const styles = StyleSheet.create({
   },
   pageTitle: {
     ...typography.h2,
+    color: colors.text.primary,
+  },
+  toast: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.glass.medium,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  toastError: {
+    backgroundColor: 'rgba(248, 113, 113, 0.2)',
+    borderColor: 'rgba(248, 113, 113, 0.35)',
+  },
+  toastSuccess: {
+    backgroundColor: 'rgba(52, 211, 153, 0.2)',
+    borderColor: 'rgba(52, 211, 153, 0.35)',
+  },
+  toastText: {
+    ...typography.body,
     color: colors.text.primary,
   },
 });

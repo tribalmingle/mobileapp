@@ -1,0 +1,28 @@
+{
+  "name": "tribalmingle-push-service",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "apn": "^2.2.0",
+    "bullmq": "^5.16.0",
+    "dotenv": "^16.5.0",
+    "express": "^4.21.2",
+    "firebase-admin": "^13.2.0",
+    "ioredis": "^5.6.0",
+    "mongodb": "^6.20.0",
+    "pino": "^9.8.0",
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.23",
+    "@types/node": "^22.13.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.9.2"
+  }
+}

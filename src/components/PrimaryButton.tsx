@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, ViewStyle } from 'react-native';
+import { StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import GoldButton from './universal/GoldButton';
 
 type PrimaryButtonProps = {
@@ -7,13 +7,13 @@ type PrimaryButtonProps = {
   onPress: () => void;
   disabled?: boolean;
   loading?: boolean;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   gradient?: readonly string[];
 };
 
 // Thin wrapper to match legacy PrimaryButton API
 export default function PrimaryButton({ title, onPress, disabled, loading, style, gradient }: PrimaryButtonProps) {
-  const combinedStyle: ViewStyle = { ...styles.button, ...(style as object) };
+  const combinedStyle: StyleProp<ViewStyle> = [styles.button, style];
   return (
     <GoldButton
       title={title}

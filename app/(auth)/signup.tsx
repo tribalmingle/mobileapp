@@ -46,7 +46,7 @@ export default function SignupScreen() {
   const [lastName, setLastName] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [gender, setGender] = useState<'male' | 'female' | ''>('');
+  const [gender, setGender] = useState<'male' | 'female' | 'non-binary' | ''>('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   
@@ -138,7 +138,7 @@ export default function SignupScreen() {
   };
 
   const handleSignUp = async () => {
-    if (!dateOfBirth) return;
+    if (!dateOfBirth || !gender) return;
     
     setLoading(true);
     try {
@@ -281,6 +281,20 @@ export default function SignupScreen() {
                   />
                   <Text style={[styles.genderText, gender === 'female' && styles.genderTextActive]}>
                     Female
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.genderButton, gender === 'non-binary' && styles.genderButtonActive]}
+                  onPress={() => setGender('non-binary')}
+                  disabled={loading}
+                >
+                  <Ionicons
+                    name="male-female"
+                    size={28}
+                    color={gender === 'non-binary' ? colors.white : colors.text.primary}
+                  />
+                  <Text style={[styles.genderText, gender === 'non-binary' && styles.genderTextActive]}>
+                    Non-binary
                   </Text>
                 </TouchableOpacity>
               </View>

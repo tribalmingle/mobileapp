@@ -1,5 +1,4 @@
 import apiClient from './client';
-import { Platform } from 'react-native';
 
 export type NotificationPayload = {
   id: string;
@@ -10,9 +9,19 @@ export type NotificationPayload = {
   createdAt?: string;
 };
 
-export const registerDeviceToken = async (deviceToken: string) => {
-  const platform = Platform.OS;
-  const payload = { deviceToken, platform };
+export type DeviceTokenType = 'fcm' | 'apns';
+
+export type DeviceTokenPayload = {
+  userId?: string;
+  deviceToken: string;
+  tokenType: DeviceTokenType;
+  platform: string;
+  deviceId?: string;
+  deviceName?: string;
+  appVersion?: string;
+};
+
+export const registerDeviceToken = async (payload: DeviceTokenPayload) => {
   const { data } = await apiClient.post('/notifications/device-token', payload);
   return data || { ok: true };
 };
