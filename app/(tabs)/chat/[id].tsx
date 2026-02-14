@@ -14,6 +14,7 @@ import {
   Pressable,
   Modal,
   Animated,
+  Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,6 +37,7 @@ import {
 } from '@/api/messaging';
 import { useAuthStore } from '@/store/authStore';
 import { useChatStore } from '@/store/chatStore';
+import { useSubscriptionStore } from '@/store/subscriptionStore';
 import { fetchUserOnlineStatus } from '@/api/users';
 import { onPushEvent } from '@/lib/notificationBus';
 
@@ -59,6 +61,9 @@ export default function ThreadScreen() {
   const router = useRouter();
   const { id, name: nameParam, avatar } = useLocalSearchParams<{ id: string; name?: string; avatar?: string }>();
   const { user } = useAuthStore();
+  const canMessageUser = useSubscriptionStore((state) => state.canMessageUser);
+  const trackMessageSent = useSubscriptionStore((state) => state.trackMessageSent);
+  const hasPremiumAccess = useSubscriptionStore((state) => state.hasPremiumAccess);
   const insets = useSafeAreaInsets();
 
   const currentUserId = useMemo(
@@ -248,6 +253,23 @@ export default function ThreadScreen() {
   }, [targetUserId, thread]);
   const onSend = async () => {
     if (!input.trim() || !id) return;
+    if (!hasPremiumAccess()) {
+      const limitCheck = canMessageUser(String(id));
+      if (!limitCheck.allowed) {
+        Alert.alert(
+          'Upgrade Required',
+          limitCheck.reason || 'You have reached your free messaging limit. Upgrade to continue.',
+          [
+            { text: 'Not now', style: 'cancel' },
+            {
+              text: 'Upgrade',
+              onPress: () => router.push('/premium'),
+            },
+          ]
+        );
+        return;
+      }
+    }
     const pending: ExtendedMessage = {
       id: `local-${Date.now()}`,
       senderId: user?._id || user?.id || 'me',
@@ -267,6 +289,7 @@ export default function ThreadScreen() {
         : await sendMessage(String(id), pending.content);
       // Preserve replyTo when updating with saved message
       setMessages((prev) => prev.map((m) => (m.id === pending.id ? { ...saved, replyTo: pending.replyTo } : m)));
+      trackMessageSent(String(id));
     } catch (err: any) {
       setError(err?.message || 'Message failed to send');
       setToast({ message: err?.message || 'Message failed to send', tone: 'error' });

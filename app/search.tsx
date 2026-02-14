@@ -9,6 +9,7 @@ import {
   Image,
   ActivityIndicator,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -17,6 +18,7 @@ import UniversalBackground from '@/components/universal/UniversalBackground';
 import GoldButton from '@/components/universal/GoldButton';
 import { fetchRecommendations, Recommendation, DiscoverFilters } from '@/api/discovery';
 import { colors, spacing, typography, borderRadius, shadows } from '@/theme';
+import { useSubscriptionStore } from '@/store/subscriptionStore';
 
 const DEBOUNCE_MS = 400;
 
@@ -40,6 +42,7 @@ const POPULAR_LOCATIONS = [
 ];
 
 export default function SearchScreen() {
+  const hasPremiumAccess = useSubscriptionStore((state) => state.hasPremiumAccess);
   const [query, setQuery] = useState('');
   const [maritalStatus, setMaritalStatus] = useState('');
   const [minAge, setMinAge] = useState('30');
@@ -72,18 +75,22 @@ export default function SearchScreen() {
     setLoading(true);
     setError(null);
 
-    const filters: DiscoverFilters = {
-      search: query.trim() || undefined,
-      maritalStatus: maritalStatus || undefined,
-      minAge: minAge ? Number(minAge) : undefined,
-      maxAge: maxAge ? Number(maxAge) : undefined,
-      country: country || undefined,
-      city: city || undefined,
-      tribe: tribe || undefined,
-      religion: religion || undefined,
-      education: education || undefined,
-      workType: workType || undefined,
-    };
+    const filters: DiscoverFilters = hasPremiumAccess()
+      ? {
+          search: query.trim() || undefined,
+          maritalStatus: maritalStatus || undefined,
+          minAge: minAge ? Number(minAge) : undefined,
+          maxAge: maxAge ? Number(maxAge) : undefined,
+          country: country || undefined,
+          city: city || undefined,
+          tribe: tribe || undefined,
+          religion: religion || undefined,
+          education: education || undefined,
+          workType: workType || undefined,
+        }
+      : {
+          search: query.trim() || undefined,
+        };
 
     try {
       const { results: data } = await fetchRecommendations(filters, 1, 30);
@@ -95,7 +102,7 @@ export default function SearchScreen() {
     } finally {
       setLoading(false);
     }
-  }, [query, maritalStatus, minAge, maxAge, country, city, tribe, religion, education, workType]);
+  }, [query, maritalStatus, minAge, maxAge, country, city, tribe, religion, education, workType, hasPremiumAccess]);
 
   // Debounced auto-search as user types
   const handleQueryChange = useCallback((text: string) => {
@@ -183,6 +190,27 @@ export default function SearchScreen() {
     runSearch(true);
   };
 
+  const handleAdvancedToggle = () => {
+    if (!hasPremiumAccess()) {
+      Alert.alert(
+        'Upgrade Required',
+        'Advanced filters are available on premium only.',
+        [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'Upgrade', onPress: () => router.push('/premium') },
+        ]
+      );
+      return;
+    }
+    setShowAdvanced((prev) => !prev);
+  };
+
+  useEffect(() => {
+    if (!hasPremiumAccess() && showAdvanced) {
+      setShowAdvanced(false);
+    }
+  }, [hasPremiumAccess, showAdvanced]);
+
   return (
     <UniversalBackground
       scrollable
@@ -243,7 +271,7 @@ export default function SearchScreen() {
         ))}
       </ScrollView>
 
-      <TouchableOpacity style={styles.advancedToggle} onPress={() => setShowAdvanced((prev) => !prev)}>
+      <TouchableOpacity style={styles.advancedToggle} onPress={handleAdvancedToggle}>
         <Text style={styles.advancedToggleText}>Advanced filters</Text>
         <Ionicons name={showAdvanced ? 'chevron-up' : 'chevron-down'} size={16} color={colors.text.secondary} />
       </TouchableOpacity>

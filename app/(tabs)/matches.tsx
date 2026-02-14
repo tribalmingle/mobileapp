@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, FlatList, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, FlatList, ActivityIndicator, ScrollView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,6 +8,7 @@ import GlassCard from '@/components/GlassCard';
 import { colors, spacing, typography, borderRadius } from '@/theme';
 import { acceptLike, declineLike, fetchIncomingLikes, fetchMatches, fetchSentLikes, fetchViews, MatchUser } from '@/api/matches';
 import { useAuthStore } from '@/store/authStore';
+import { useSubscriptionStore } from '@/store/subscriptionStore';
 
 type InboxTab = 'incoming' | 'sent' | 'views' | 'matches';
 
@@ -76,6 +77,7 @@ const MatchCard = ({ item, onViewProfile, onChat }: { item: MatchUser; onViewPro
 export default function MatchesScreen() {
   const router = useRouter();
   const currentUser = useAuthStore((state) => state.user);
+  const hasPremiumAccess = useSubscriptionStore((state) => state.hasPremiumAccess);
   const [matches, setMatches] = useState<MatchUser[]>([]);
   const [incomingLikes, setIncomingLikes] = useState<MatchUser[]>([]);
   const [sentLikes, setSentLikes] = useState<MatchUser[]>([]);
@@ -84,6 +86,24 @@ export default function MatchesScreen() {
   const [error, setError] = useState<string | null>(null);
   const [actioningId, setActioningId] = useState<string | null>(null);
   const [tab, setTab] = useState<InboxTab>('incoming');
+
+  const handleRestrictedTab = (tabId: InboxTab) => {
+    if (!hasPremiumAccess() && (tabId === 'incoming' || tabId === 'views')) {
+      Alert.alert(
+        'Upgrade Required',
+        tabId === 'incoming'
+          ? 'Seeing who liked you is a premium feature. Upgrade to unlock it.'
+          : 'Seeing who viewed you is a premium feature. Upgrade to unlock it.',
+        [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'Upgrade', onPress: () => router.push('/premium') },
+        ]
+      );
+      return;
+    }
+
+    setTab(tabId);
+  };
 
   const getPriority = (candidate: MatchUser) => {
     if (!currentUser) return 4;
@@ -120,16 +140,23 @@ export default function MatchesScreen() {
     setLoading(true);
     setError(null);
     try {
-      const [m, likes, sent, seen] = await Promise.all([
+      const [m, sent] = await Promise.all([
         fetchMatches(),
-        fetchIncomingLikes(),
         fetchSentLikes(),
-        fetchViews(),
       ]);
       setMatches(sortByPriority(m));
-      setIncomingLikes(sortByPriority(likes));
       setSentLikes(sortByPriority(sent));
-      setViews(sortByPriority(seen));
+      if (hasPremiumAccess()) {
+        const [likes, seen] = await Promise.all([
+          fetchIncomingLikes(),
+          fetchViews(),
+        ]);
+        setIncomingLikes(sortByPriority(likes));
+        setViews(sortByPriority(seen));
+      } else {
+        setIncomingLikes([]);
+        setViews([]);
+      }
     } catch (err: any) {
       setError(err?.message || 'Could not load matches');
     } finally {
@@ -139,7 +166,7 @@ export default function MatchesScreen() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [hasPremiumAccess]);
 
   const openProfile = (item: MatchUser) => {
     const targetId = item.email || item.id;
@@ -452,7 +479,7 @@ export default function MatchesScreen() {
                 },
                 active && styles.tabActive,
               ]}
-              onPress={() => setTab(t.id)}
+              onPress={() => handleRestrictedTab(t.id)}
               activeOpacity={0.8}
             >
               <Ionicons 

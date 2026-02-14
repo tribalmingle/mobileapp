@@ -1,4 +1,4 @@
-import { Stack, router } from 'expo-router';
+import { Stack, router, usePathname } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { colors } from '@/theme';
@@ -10,6 +10,8 @@ import { useScreenTracking } from '@/hooks/useScreenTracking';
 import { fetchNotifications } from '@/api/notifications';
 import { useNotificationStore } from '@/store/notificationStore';
 import { useAuthStore } from '@/store/authStore';
+import { useSubscriptionStore } from '@/store/subscriptionStore';
+import { getPremiumEntitlementState, getRevenueCatCustomerInfo, initializeRevenueCat } from '@/lib/revenueCat';
 import GuaranteedDatingPopup from '@/components/GuaranteedDatingPopup';
 import SafetyReminderPopup from '@/components/SafetyReminderPopup';
 
@@ -18,6 +20,13 @@ export default function RootLayout() {
   const setNotifications = useNotificationStore((state) => state.setNotifications);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const token = useAuthStore((state) => state.token);
+  const user = useAuthStore((state) => state.user);
+  const pathname = usePathname();
+  const hasPremiumAccess = useSubscriptionStore((state) => state.hasPremiumAccess);
+  const subscriptionChecked = useSubscriptionStore((state) => state.subscriptionChecked);
+  const freeAccessChosen = useSubscriptionStore((state) => state.freeAccessChosen);
+  const setSubscriptionChecked = useSubscriptionStore((state) => state.setSubscriptionChecked);
+  const setRevenueCatSubscription = useSubscriptionStore((state) => state.setRevenueCatSubscription);
 
   useEffect(() => {
     initAnalytics();
@@ -94,6 +103,51 @@ export default function RootLayout() {
       clearInterval(interval);
     };
   }, [isAuthenticated, token, setNotifications]);
+
+  useEffect(() => {
+    let active = true;
+
+    const syncRevenueCat = async () => {
+      const appUserId = user?._id || user?.id;
+      const initialized = await initializeRevenueCat(appUserId);
+      if (!initialized || !active) {
+        if (active) setSubscriptionChecked(true);
+        return;
+      }
+
+      const customerInfo = await getRevenueCatCustomerInfo();
+      if (!active) return;
+
+      if (!customerInfo) {
+        setSubscriptionChecked(true);
+        return;
+      }
+
+      const status = getPremiumEntitlementState(customerInfo);
+      if (!active) return;
+
+      setRevenueCatSubscription(status);
+    };
+
+    syncRevenueCat().catch((error) => {
+      console.warn('[RevenueCat] Failed to sync subscription state', error);
+      if (active) setSubscriptionChecked(true);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [user?._id, user?.id, setRevenueCatSubscription, setSubscriptionChecked]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (!subscriptionChecked) return;
+    if (hasPremiumAccess()) return;
+    if (freeAccessChosen) return;
+    if (pathname === '/premium') return;
+
+    router.replace('/premium');
+  }, [isAuthenticated, subscriptionChecked, hasPremiumAccess, freeAccessChosen, pathname]);
 
   return (
     <SafeAreaProvider>

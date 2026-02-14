@@ -50,17 +50,23 @@ interface SubscriptionState {
   tier: SubscriptionTier;
   trialActivatedAt: string | null;
   trialExpiresAt: string | null;
+  subscriptionChecked: boolean;
+  freeAccessChosen: boolean;
   weeklyMessageTracking: MessageTracking;
   weekStartDate: string | null;
   
   // Computed
   isTrialActive: () => boolean;
+  hasPremiumAccess: () => boolean;
   getLimits: () => SubscriptionLimits;
   canMessageUser: (recipientId: string) => { allowed: boolean; reason?: string };
   getPeopleMessagedThisWeek: () => number;
   
   // Actions
   activateTrial: () => Promise<void>;
+  setRevenueCatSubscription: (payload: { isActive: boolean; isTrial: boolean; expiresAt: string | null }) => void;
+  setSubscriptionChecked: (checked: boolean) => void;
+  chooseFreeAccess: () => void;
   trackMessageSent: (recipientId: string) => void;
   resetWeeklyTracking: () => void;
   checkAndResetWeek: () => void;
@@ -81,6 +87,8 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       tier: 'free',
       trialActivatedAt: null,
       trialExpiresAt: null,
+      subscriptionChecked: false,
+      freeAccessChosen: false,
       weeklyMessageTracking: {},
       weekStartDate: null,
 
@@ -90,9 +98,14 @@ export const useSubscriptionStore = create<SubscriptionState>()(
         return new Date(trialExpiresAt) > new Date();
       },
 
-      getLimits: () => {
+      hasPremiumAccess: () => {
         const { tier, isTrialActive } = get();
-        if (tier === 'premium' || (tier === 'trial' && isTrialActive())) {
+        return tier === 'premium' || (tier === 'trial' && isTrialActive());
+      },
+
+      getLimits: () => {
+        const { hasPremiumAccess } = get();
+        if (hasPremiumAccess()) {
           return PREMIUM_LIMITS;
         }
         return FREE_LIMITS;
@@ -162,6 +175,33 @@ export const useSubscriptionStore = create<SubscriptionState>()(
         }
       },
 
+      setRevenueCatSubscription: ({ isActive, isTrial, expiresAt }) => {
+        if (!isActive) {
+          set({ tier: 'free', trialActivatedAt: null, trialExpiresAt: null, subscriptionChecked: true });
+          return;
+        }
+
+        if (isTrial) {
+          set((state) => ({
+            tier: 'trial',
+            trialActivatedAt: state.trialActivatedAt || new Date().toISOString(),
+            trialExpiresAt: expiresAt,
+            subscriptionChecked: true,
+          }));
+          return;
+        }
+
+        set({ tier: 'premium', trialActivatedAt: null, trialExpiresAt: expiresAt, subscriptionChecked: true });
+      },
+
+      setSubscriptionChecked: (checked: boolean) => {
+        set({ subscriptionChecked: checked });
+      },
+
+      chooseFreeAccess: () => {
+        set({ freeAccessChosen: true });
+      },
+
       trackMessageSent: (recipientId: string) => {
         const { weeklyMessageTracking, checkAndResetWeek } = get();
         checkAndResetWeek();
@@ -197,6 +237,8 @@ export const useSubscriptionStore = create<SubscriptionState>()(
         tier: state.tier,
         trialActivatedAt: state.trialActivatedAt,
         trialExpiresAt: state.trialExpiresAt,
+        subscriptionChecked: state.subscriptionChecked,
+        freeAccessChosen: state.freeAccessChosen,
         weeklyMessageTracking: state.weeklyMessageTracking,
         weekStartDate: state.weekStartDate,
       }),
